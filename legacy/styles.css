@@ -1,4 +1,6 @@
 /* Layout: specimen bench. Orbiting stage left; litter tray, AI notes, shelf and genome right; one column on phones. */
+/* `.sheet` sets display:grid; without this, [hidden] loses to the class and modals show on load. */
+[hidden]{display:none!important}
 :root{
   --paper:#E5E9E2; --panel:#F3F5F0; --ink:#1A201E; --muted:#56615C; --rule:#C4CBC2;
   --accent:#2B45AD; --on-accent:#FFFFFF; --stage:#D2D8CF; --scrim:rgba(20,26,24,.45);

@@ -10,6 +10,7 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 |----------|--------|-------|
 | GitHub owner | `carlok` | |
 | Repository name | `consculpta` | |
+| Product name (user-facing) | **Consculpta** | Page title, headings, exports; not “Noise Sculpture Breeder” |
 | GitHub Pages URL | `https://carlok.github.io/consculpta/` | Project Pages sub-path |
 | Repository visibility | Public | |
 | Custom domain | **TBD** | No `CNAME` until decided |
@@ -36,7 +37,7 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 | Decision | Choice | Notes |
 |----------|--------|-------|
 | AI providers in scope | Anthropic API + OpenAI-compatible | Browser calls user-configured endpoints |
-| Single-file HTML release | `file://` | Offline open; planned in release phase |
+| Single-file HTML release | `file://` as **`consculpta.html`** | Offline open; planned in release phase (filename fixed in advance) |
 | `containers/` Podman dev environment | **Include** (later phase) | Rootless Podman per tooling plan; not phase 0–1 |
 | Self-hosting API proxy | **Skipped** | No `proxy/`; keys stay in the browser |
 
@@ -48,7 +49,7 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 | Typecheck | TypeScript `5.9.3`, `checkJs` + `strict` on `src/` and `tests/` | |
 | Bundler | Vite `7.1.9`, `base: './'` | Dev shell at `src/index.html` |
 | CI | `.github/workflows/ci.yml` — lint, typecheck, unit tests | Pages workflow runs `npm run check` |
-| Dependabot | npm + github-actions, weekly | |
+| Dependabot | npm + github-actions, weekly | **Grouped:** one PR for all npm dev deps, one for all Actions; `open-pull-requests-limit: 2` per ecosystem |
 
 ## Phase 0 (walking skeleton)
 
