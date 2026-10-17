@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-.PHONY: dev build build-single preview test coverage lint typecheck glsl e2e check
+.PHONY: dev build build-engine build-single preview test coverage lint typecheck glsl e2e check
+
+build-engine:
+	npm run build:engine
 
 dev:
 	npm run dev

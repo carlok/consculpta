@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:engine": "vite build -c vite.engine.config.js",
     "build:single": "node scripts/inline-single-file.mjs",
     "preview": "vite preview",
     "test": "vitest run",
@@ -15,15 +16,16 @@
     "typecheck": "tsc --noEmit",
     "glsl": "node scripts/glsl-check.mjs",
     "e2e": "playwright test",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "check": "npm run lint && npm run typecheck && npm run coverage"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.0.5",
-    "@types/node": "24.7.0",
-    "@playwright/test": "1.55.1",
-    "@vitest/coverage-v8": "3.2.4",
-    "typescript": "5.9.3",
-    "vite": "7.1.9",
-    "vitest": "3.2.4"
+    "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "@vitest/coverage-v8": "5.0.5",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
   }
 }
