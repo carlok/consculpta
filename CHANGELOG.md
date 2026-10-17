@@ -28,9 +28,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The orbit hint fades after your first orbit or zoom and stays hidden on this device (`nsb.hinted`).
 - On phones the mutation label sits as a chip on each thumbnail so the tag is no longer truncated; zoom buttons and shelf remove buttons are larger on touch screens.
 - README: About (with footer links), How to use, Privacy and API keys, licence footer.
+- Lineage strip under the stage readout: the last 10 parents as chips, newest on the right. Clicking one brings it back (with the litter it had) as a new step, with Undo.
+- Resting the pointer on a litter thumbnail for 400 ms shows that offspring on the big stage from the current camera; on touch screens a long press does the same without adopting. Moving away restores the parent.
+- Eight palette presets above the colour sliders. A preset rewrites the cosine-palette genes (7–18) and breeds a new litter, with Undo.
+- Theme control (System / Light / Dark) in the footer, saved as `nsb.theme` and applied before first paint.
+- Screen readers hear "Litter ready" once all six thumbnails of a litter you asked for have rendered. The litter is a labelled group ("Offspring").
 
 ### Changed
 
+- The mutation slider says (tooltip and `aria-describedby`) that changing it rerolls the litter.
+- The formula language reference is a two-column list in a scrolling box instead of a long preformatted block.
 - Legacy boot marks the footer and core UI state before enqueueing litter thumbnails, and litter shader compiles happen incrementally in the frame loop (avoids blocking first paint on six parallel compiles).
 
 ### Fixed

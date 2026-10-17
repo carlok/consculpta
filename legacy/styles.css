@@ -74,6 +74,19 @@ p{margin:0}
 .stage-msg pre{white-space:pre-wrap;text-align:left;font:11px/1.5 var(--f-mono);max-height:100%;overflow:auto}
 .readout{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;color:var(--muted)}
 .readout span{white-space:nowrap}
+/* Lineage strip: recent parents as small chips, newest on the right. The list is newest-first in the DOM and laid out
+   row-reverse, so when it outgrows the column it scrolls sideways with the newest end in view. */
+.lineage{min-width:0}
+.lineage ol{list-style:none;margin:0;padding:3px 3px 5px;display:flex;flex-direction:row-reverse;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:thin}
+.lineage li{flex:0 0 auto;display:flex;align-items:center;gap:4px}
+.lineage li+li::after{content:"\203A";color:var(--muted);font-size:12px}
+.lin{appearance:none;font:500 10.5px/1 var(--f-mono);letter-spacing:.04em;color:var(--muted);background:var(--panel);border:1px solid var(--rule);border-radius:999px;padding:5px 8px;cursor:pointer;white-space:nowrap}
+.lin:hover{color:var(--ink);border-color:var(--muted)}
+.lin:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lin-cur{margin-right:auto;font:500 10.5px/1 var(--f-mono);letter-spacing:.04em;color:var(--ink);white-space:nowrap}
+@media (pointer:coarse){.lin{padding:8px 10px}}
+/* While a thumbnail is previewed on the stage, the plate is outlined so it is clear this is not the parent. */
+.stage.previewing .plate{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .stage:fullscreen{width:100vw;height:100vh;max-width:none;aspect-ratio:auto}
 .stage:-webkit-full-screen{width:100vw;height:100vh;max-width:none;aspect-ratio:auto}
 .zoomer{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;align-items:center;padding:5px;background:var(--panel);border:1px solid var(--rule);border-radius:999px}
@@ -130,7 +143,7 @@ p{margin:0}
 .turn b{color:var(--ai-accent);font-weight:600}
 
 .litter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.pup{appearance:none;background:none;border:0;padding:0;margin:0;cursor:pointer;display:grid;gap:6px;text-align:left;color:var(--ink);min-width:0;font:inherit}
+.pup{appearance:none;background:none;border:0;padding:0;margin:0;cursor:pointer;display:grid;gap:6px;text-align:left;color:var(--ink);min-width:0;font:inherit;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .pup-frame{position:relative}
 .pup canvas{display:block;width:100%;max-width:100%;aspect-ratio:1/1;height:auto;background:var(--stage);border:1px solid var(--rule);transition:border-color .15s,transform .15s}
 .pup:hover canvas{border-color:var(--muted)}
@@ -225,7 +238,13 @@ textarea.formula.short{min-height:52px}
 textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .apply-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .ref summary{cursor:pointer;color:var(--accent);font-size:13px}
-.ref pre{margin:8px 0 0;font:11px/1.6 var(--f-mono);color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
+.lang-ref{margin-top:8px;max-height:260px;overflow:auto;border:1px solid var(--rule);background:var(--panel);border-radius:4px;padding:8px 12px;outline:none}
+.lang-ref:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lang-ref dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 16px;margin:0;font-size:12.5px;line-height:1.45}
+.lang-ref dt{font:11px/1.6 var(--f-mono);color:var(--ink);white-space:nowrap}
+.lang-ref dt.span{grid-column:1/-1;white-space:normal}
+.lang-ref dd{margin:0;color:var(--muted);min-width:0}
+@media (max-width:480px){.lang-ref dl{grid-template-columns:minmax(0,1fr);gap:0}.lang-ref dt{margin-top:7px;white-space:normal;overflow-wrap:anywhere}.lang-ref dt:first-child{margin-top:0}}
 .sliders{display:grid;gap:6px}
 .row{display:grid;grid-template-columns:8.6em minmax(0,1fr) 5.6em;align-items:center;gap:10px;font-size:13px}
 .row.idle>:first-child,.row.idle input[type=range],.row.idle output,.row.idle .seg{opacity:.45}
@@ -242,6 +261,11 @@ textarea[aria-invalid="true"]{border-color:var(--warn)}
 .row output{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 input[type=range]{width:100%;min-width:0;accent-color:var(--accent);margin:0;height:22px}
 .strip{height:18px;border:1px solid var(--rule)}
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.preset{appearance:none;height:22px;border:1px solid var(--rule);border-radius:4px;padding:0;cursor:pointer}
+.preset:hover{border-color:var(--muted)}
+.preset:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (pointer:coarse){.preset{height:32px}}
 .palgrid{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:4px 10px;align-items:center;font-size:12px}
 .palgrid .ph{font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
 .palgrid .pl{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
@@ -258,6 +282,7 @@ footer a:hover{text-decoration-thickness:2px}
 .footer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:4px}
 .footer-repo{display:inline-flex;color:var(--ink);line-height:0}
 .footer-repo:hover{color:var(--accent)}
+.footer-meta .theme{margin-left:auto}
 .sheet a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
 
 /* .sheet is a modal <dialog> filling the viewport; the panel inside is the visible sheet and the backdrop is the scrim. */
