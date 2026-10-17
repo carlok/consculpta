@@ -11,6 +11,8 @@ describe('modular engine vs legacy snapshot', () => {
       expect(modular.print(modular.parse(src))).toBe(legacy.print(legacy.parse(src)));
     }
     expect(modular.snoise(0, 0, 0)).toBeCloseTo(legacy.snoise(0, 0, 0), 12);
-    expect(modular.viable(modular.startGenome())).toEqual(legacy.viable(legacy.startGenome()));
+    const pinned = modular.decode(modular.DEFAULT_SPECIMEN_CODE);
+    expect(pinned).not.toBeNull();
+    expect(modular.viable(pinned)).toEqual(legacy.viable(pinned));
   });
 });

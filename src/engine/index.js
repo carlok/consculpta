@@ -8,6 +8,12 @@
 
 import { fitIso, stats, strandP, uniforms, viable } from './analysis.js';
 import { glsl } from './codegen-glsl.js';
+import {
+  DEFAULT_CAMERA,
+  DEFAULT_SPECIMEN_CODE,
+  DEFAULT_SPECIMEN_TAG,
+  defaultSpecimenGenome,
+} from './default-specimen.js';
 import { js } from './evaluate.js';
 import { BANK, crossover, mutate, randomGenome, startGenome } from './evolve.js';
 import { cloneG, decode, encode, fmtScalar, NS, SCALARS, tag, val } from './genome.js';
@@ -25,7 +31,11 @@ export {
   cloneG,
   cost,
   crossover,
+  DEFAULT_CAMERA,
+  DEFAULT_SPECIMEN_CODE,
+  DEFAULT_SPECIMEN_TAG,
   decode,
+  defaultSpecimenGenome,
   depth,
   encode,
   fbmJS,
@@ -85,6 +95,10 @@ const engine = {
   fitIso,
   randomGenome,
   startGenome,
+  defaultSpecimenGenome,
+  DEFAULT_SPECIMEN_CODE,
+  DEFAULT_SPECIMEN_TAG,
+  DEFAULT_CAMERA,
   cloneG,
   encode,
   decode,
