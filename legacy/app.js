@@ -29,10 +29,11 @@ const $ = id => document.getElementById(id);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = matchMedia('(pointer: coarse)').matches;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
-const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
+const DEFAULT_CAM = E.DEFAULT_CAMERA;
+const SURFACE = [24, 2, 1, 3, 0, 6, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
 
-const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[],
-           spin:!reduceMotion, morph:false, morphT:0, yaw:4.4434, pitch:0.3615, dist:3.55, distT:3.55};
+const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[], future:[],
+           spin:!reduceMotion, morph:false, morphT:0, yaw:DEFAULT_CAM.yaw, pitch:DEFAULT_CAM.pitch, dist:DEFAULT_CAM.dist, distT:DEFAULT_CAM.dist};
 const CUR = {every:3, role:'advise', since:0, busy:null, notes:[], log:[], picks:[], 
              agree:0, rounds:0, pendingAsk:false, countdown:null};
 let BG = [0.82, 0.85, 0.81];
@@ -40,9 +41,13 @@ let focusDirty = true, scale = coarse ? 0.6 : 1, emaDt = 16, adaptN = 0, lastTs 
 let thumbSize = 240, queue = [], snap = null, snapBlob = null, DL = null, glLost = false;
 const drag = {active:false, x:0, y:0, touch:false};
 let keyHeld = 0, keyTimer = 0;
+const HIST_SAVED = 15;
 const store = {
   load(){ try { return JSON.parse(localStorage.getItem('nsb.v3') || 'null'); } catch (e) { return null; } },
+  /* lit: the current litter, so a reload shows the same six; hist: recent parents, so Undo survives a reload. */
   save(){ try { localStorage.setItem('nsb.v3', JSON.stringify({p:E.encode(S.parent), gen:S.gen, m:S.mutation, shelf:S.shelf, kseq:S.kseq,
+    lit:S.litter.map(k => ({c:E.encode(k.g), l:k.label || '', ai:k.by === 'ai' ? 1 : 0})),
+    hist:S.history.slice(-HIST_SAVED).map(h => ({p:E.encode(h.parent), gen:h.gen})),
     cur:{every:CUR.every, role:CUR.role, notes:CUR.notes, log:CUR.log.slice(0, 8), agree:CUR.agree, rounds:CUR.rounds}})); } catch (e) {} },
 };
 
@@ -56,14 +61,56 @@ for (let i = 0; i < 6; i++){
   $('litter').appendChild(b);
   pups.push({btn:b, cv:b.querySelector('canvas'), id:b.querySelector('.pup-id'), op:b.querySelector('.pup-op'), badge:b.querySelector('.badge')});
 }
+/* Gene controls. Each entry has sync(v) to show a gene value; discrete genes get radio segments, the rest sliders. */
 const sliderEls = [];
 function sliderRow(i){
+  if (E.DISCRETE.has(i)) return segRow(i);
   const row = document.createElement('div'); row.className = 'row';
-  row.innerHTML = `<label for="gene-${i}">${E.SCALARS[i].n}</label><input type="range" id="gene-${i}" min="0" max="1000" step="1"><output for="gene-${i}"></output>`;
+  row.innerHTML = `<label for="gene-${i}">${E.SCALARS[i].n}</label><input type="range" id="gene-${i}" min="0" max="1000" step="1" aria-describedby="gene-${i}-why"><output for="gene-${i}"></output><span class="sr-only" id="gene-${i}-why"></span>`;
   const input = row.querySelector('input'), out = row.querySelector('output');
   input.addEventListener('input', () => editScalar(i, input.value/1000));
-  sliderEls[i] = {input, out};
+  sliderEls[i] = {row, input, out, sync:v => { input.value = Math.round(v*1000); out.textContent = E.fmtScalar(i, v); }};
   return row;
+}
+/* Discrete genes: option labels, the gene value written for option k (bucket centre), and the option gene value g falls in. */
+function discrete(i){
+  const d = E.SCALARS[i];
+  if (i === 24) return {labels:d.names, toV:k => k ? E.STRANDS_ON : E.STRANDS_OFF, idx:g => d.f(g)};
+  const labels = d.names || [2, 3, 4, 5, 6, 7].map(String), n = labels.length, base = d.names ? 0 : 2;
+  return {labels, toV:k => (k + 0.5)/n, idx:g => d.f(g) - base};
+}
+function segRow(i){
+  const {labels, toV, idx} = discrete(i);
+  const row = document.createElement('div'); row.className = 'row seg-row';
+  row.innerHTML = `<span id="gene-${i}-l">${E.SCALARS[i].n}</span><div class="seg" role="radiogroup" id="gene-${i}" aria-labelledby="gene-${i}-l" aria-describedby="gene-${i}-why"></div><span class="sr-only" id="gene-${i}-why"></span>`;
+  const seg = row.querySelector('.seg');
+  const radios = labels.map((name, k) => {
+    const l = document.createElement('label');
+    l.innerHTML = `<input type="radio" name="gene-${i}" value="${k}"><span></span>`;
+    l.querySelector('span').textContent = name;
+    const r = l.querySelector('input');
+    r.addEventListener('change', () => { if (r.checked) editScalar(i, toV(k)); });
+    seg.appendChild(l);
+    return r;
+  });
+  sliderEls[i] = {row, input:seg, out:null, sync:g => { const k = idx(g); radios.forEach((r, j) => { r.checked = j === k; }); }};
+  return row;
+}
+/* '' when gene i shapes the render for genome values v, otherwise why it does not. */
+function geneWhy(v, i){
+  const strands = E.val(v, 24) === 1, mode = E.val(v, 2);
+  if (i === 2 && strands) return 'Strands replace the surface.';
+  if (i === 1 && !strands && mode === 0) return 'Solid surfaces have no thickness.';
+  if (i === 3 && (strands || mode !== 2)) return 'Only used by contour surfaces.';
+  return '';
+}
+function syncRelevance(){
+  [1, 2, 3].forEach(i => {
+    const why = geneWhy(S.parent.v, i), el = sliderEls[i];
+    el.row.classList.toggle('idle', !!why);
+    el.row.title = why;
+    $(`gene-${i}-why`).textContent = why;
+  });
 }
 SURFACE.forEach(i => $('gSurface').appendChild(sliderRow(i)));
 COLOR.forEach(i => $('gColor').appendChild(sliderRow(i)));
@@ -78,7 +125,7 @@ LIGHT.forEach(i => $('gLight').appendChild(sliderRow(i)));
       input.type = 'range'; input.min = '0'; input.max = '1000'; input.step = '1'; input.id = 'gene-' + i; input.className = ch;
       input.setAttribute('aria-label', `Palette ${k} (${what}), ${['red','green','blue'][j]}`);
       input.addEventListener('input', () => editScalar(i, input.value/1000));
-      pg.appendChild(input); sliderEls[i] = {input, out:null};
+      pg.appendChild(input); sliderEls[i] = {input, out:null, sync:v => { input.value = Math.round(v*1000); }};
     });
   });
 })();
@@ -94,7 +141,7 @@ function readBg(){
   return [0.82, 0.85, 0.81];
 }
 function stageCss(){ const r = $('stage').getBoundingClientRect(); return [Math.max(64, Math.round(r.width)), Math.max(64, Math.round(r.height))]; }
-function readRes(){ $('readRes').textContent = `${fc.width} × ${fc.height} px · zoom ${(3.55/S.distT).toFixed(2)}×`; }
+function readRes(){ $('readRes').textContent = `${fc.width} × ${fc.height} px · zoom ${(DEFAULT_CAM.dist/S.distT).toFixed(2)}×`; }
 function setScale(s){
   scale = Math.min(1, Math.max(0.28, s));
   const [w, h] = stageCss();
@@ -106,35 +153,74 @@ function setScale(s){
 function drawFocus(){
   const e = programFor(S.parent);
   if (!ready(e)){
-    $('readFrame').textContent = e.state === 'error' ? 'shader error' : 'compiling formula…';
+    const err = e.state === 'error';
+    $('readFrame').textContent = err ? 'shader error' : 'compiling formula…';
+    stageBusy(err ? 'This formula did not compile. Undo goes back.' : 'compiling formula…', err);
     return false;
   }
+  stageBusy('');
   drawWith(e, S.parent, {w:fc.width, h:fc.height, cam:[S.yaw, S.pitch, S.dist], mt:S.morphT});
+  if (afterFirstDraw){ const f = afterFirstDraw; afterFirstDraw = null; setTimeout(f, 0); }
   return true;
 }
+/* Runs once the parent is first on screen, so a boot-time toast is not spent while shaders compile. */
+let afterFirstDraw = null;
+/* Overlay while the parent's shader compiles (after a short grace period, so fast compiles don't flash) or failed. */
+let busySince = 0;
+function stageBusy(text, now){
+  const el = $('stageBusy');
+  if (!text){ busySince = 0; el.hidden = true; return; }
+  const t = performance.now();
+  if (!busySince) busySince = t;
+  if (!now && t - busySince < 180) return;
+  el.querySelector('span').textContent = text;
+  el.classList.toggle('err', !!now);
+  el.hidden = false;
+}
 function queueThumb(g, canvas, key, size){ queue = RENDER.enqueueThumb(queue, key, {g, canvas, key, size, tries:0}); }
-function queueLitter(){ S.litter.forEach((k, i) => queueThumb(k.g, pups[i].cv, 'pup' + i, thumbSize)); }
+function queueLitter(){
+  S.litter.forEach((k, i) => {
+    if (pups[i].cv.dataset.done !== String(S.litterId)) pups[i].btn.classList.add('pending');
+    queueThumb(k.g, pups[i].cv, 'pup' + i, thumbSize);
+  });
+}
 function queueShelf(){ shelfCanvases.forEach(({g, cv, k}) => queueThumb(g, cv, 'kept' + k, Math.round(76*DPR))); }
 function processQueue(){
-  RENDER.processThumbQueue(queue, GLR, {cam:THUMB_CAM, morphT:S.morphT, litterId:S.litterId, paintError});
+  if (RENDER.processThumbQueue(queue, GLR, {cam:THUMB_CAM, morphT:S.morphT, litterId:S.litterId, paintError})){
+    pups.forEach(p => { if (p.cv.dataset.done === String(S.litterId)) p.btn.classList.remove('pending'); });
+  }
 }
 function paintError(cv, T){
   if (cv.width !== T){ cv.width = cv.height = T; }
   const ctx = cv.getContext('2d'); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--stage'); ctx.fillRect(0, 0, T, T);
   ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted'); ctx.font = `${Math.round(T/14)}px ui-monospace, monospace`; ctx.fillText('shader error', T*0.08, T*0.52);
+  markDone(cv);
+}
+/* A litter canvas shows stale pixels until its job runs; .pending dims it so the label never sits over the wrong picture. */
+function markDone(cv){
   cv.dataset.done = String(S.litterId);
+  const btn = cv.closest('.pup'); if (btn) btn.classList.remove('pending');
 }
 function litterRendered(){ /* every litter canvas painted for the current litter */ return pups.every(p => p.cv.dataset.done === String(S.litterId)) && !queue.some(q => q.key.startsWith('pup')); }
 
+/* Spin and morph only draw while the stage is on screen. */
+let stageOnScreen = true;
+new IntersectionObserver(es => {
+  const on = es[es.length - 1].isIntersecting;
+  if (on && !stageOnScreen) focusDirty = true;
+  stageOnScreen = on;
+}).observe($('stage'));
 function frame(ts){
   const dt = lastTs ? Math.min(120, ts - lastTs) : 16; lastTs = ts;
   if (GL.gl && !glLost){
     const zooming = Math.abs(S.distT - S.dist) > 0.002;
     if (zooming){ S.dist += (S.distT - S.dist)*Math.min(1, dt*0.014); if (Math.abs(S.distT - S.dist) <= 0.002){ S.dist = S.distT; focusDirty = true; } }
     const moving = S.spin || S.morph || drag.active || keyHeld > 0 || zooming || pinch.active;
-    if (S.spin && !drag.active && !snap) S.yaw += dt*0.00032;
-    if (S.morph && !snap) S.morphT += dt*0.00008;
+    const visible = stageOnScreen || !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (S.spin && !drag.active && !snap && visible) S.yaw += dt*0.00032;
+    if (S.morph && !snap && visible) S.morphT += dt*0.00008;
     if (snap){ /* the export has the GPU */ }
+    else if (!visible){ /* stage scrolled away: leave the GPU to thumbnails */ }
     else if (moving){
       emaDt = emaDt*0.88 + dt*0.12;
       if (++adaptN > 14){
@@ -156,10 +242,35 @@ function frame(ts){
 
 /* ================= Breeding ================= */
 const kindOf = g => `${E.val(g.v, 24) ? 'strands' : E.fmtScalar(2, g.v[2])} · ${E.fmtScalar(4, g.v[4])} · ${E.size(g.t)} nodes`;
+const snapshotState = () => ({parent:E.cloneG(S.parent), gen:S.gen, litter:S.litter.map(k => ({...k, g:E.cloneG(k.g)}))});
 function pushHistory(){
-  S.history.push({parent:E.cloneG(S.parent), gen:S.gen, litter:S.litter.map(k => ({...k, g:E.cloneG(k.g)}))});
+  S.history.push(snapshotState());
   if (S.history.length > 60) S.history.shift();
+  S.future = [];
+  dismissToast('history');
+  syncHistoryButtons();
 }
+function syncHistoryButtons(){ $('undo').disabled = S.history.length === 0; $('redo').disabled = S.future.length === 0; }
+function restoreState(h){
+  cancelCountdown(); clearTimeout(editTimer); editing = false;
+  S.parent = h.parent; S.gen = h.gen;
+  if (h.litter && h.litter.length === 6){ S.litter = h.litter; S.litterId++; } else breed();   // history restored from storage has no litter
+  refreshAll();
+}
+function undo(){
+  const h = S.history.pop();
+  if (!h){ toast('Nothing to undo.'); return; }
+  S.future.push(snapshotState());
+  restoreState(h);
+}
+function redo(){
+  const h = S.future.pop();
+  if (!h){ toast('Nothing to redo.'); return; }
+  S.history.push(snapshotState());
+  restoreState(h);
+}
+/* Toast with an Undo button that reverts the step that was just recorded. */
+const undoToast = msg => toast(msg, {action:'Undo', onAction:undo, kind:'history'});
 function breed(aiChild){
   cancelCountdown();
   const kids = [];
@@ -187,20 +298,23 @@ function syncLitter(){
     p.badge.hidden = !k.aiPick; p.badge.textContent = '★ ' + (k.pickBy || 'AI');
     p.btn.classList.toggle('picked', !!k.aiPick);
     p.btn.title = E.print(k.g.t);
-    p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}${k.aiPick ? `, ${k.pickBy || 'AI'}’s favourite` : ''}${k.by === 'ai' ? `, written by ${k.label}` : ''}`);
+    p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}, ${E.tag(k.g)}${k.label && k.by !== 'ai' ? `, ${k.label}` : ''}${k.aiPick ? `, ${k.pickBy || 'AI'}’s favourite` : ''}${k.by === 'ai' ? `, written by ${k.label}` : ''}`);
   });
 }
 function syncParent(){
   $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
   $('plateKind').textContent = kindOf(S.parent);
-  sliderEls.forEach((s, i) => { if (!s) return; s.input.value = Math.round(S.parent.v[i]*1000); if (s.out) s.out.textContent = E.fmtScalar(i, S.parent.v[i]); });
+  sliderEls.forEach((s, i) => { if (s) s.sync(S.parent.v[i]); });
+  syncRelevance();
   $('strip').style.background = E.palCSS(S.parent.v);
   if (document.activeElement !== $('fText')) $('fText').value = E.pretty(S.parent.t);
   if (document.activeElement !== $('cText')) $('cText').value = E.pretty(S.parent.c);
   $('fStats').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise`;
-  $('fErr').textContent = '';
+  $('genomeSum').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise · ${E.fmtScalar(4, S.parent.v[4])}`;
+  if (document.activeElement !== $('fText') && document.activeElement !== $('cText')) markFormula('', null);
   if (document.activeElement !== $('code')) $('code').value = E.encode(S.parent);
-  $('undo').disabled = S.history.length === 0;
+  syncHistoryButtons();
+  syncKeep();
 }
 function refreshAll(){ focusDirty = true; syncParent(); syncLitter(); queueLitter(); store.save(); }
 function adopt(i, by, aiChild){
@@ -215,10 +329,16 @@ function adopt(i, by, aiChild){
   pushHistory();
   S.parent = E.cloneG(k.g); S.gen += 1;
   breed(aiChild); refreshAll();
+  pulsePlate();
+  undoToast(`${by === 'you' ? 'Adopted' : aiName() + ' adopted'} offspring ${i + 1} · ${E.tag(S.parent)} as G${S.gen}.`);
   if (by === 'you' && CUR.every > 0 && CUR.since >= CUR.every && usable()) CUR.pendingAsk = true;
   curStatus();
 }
 
+function pulsePlate(){
+  const el = document.querySelector('.plate');
+  el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+}
 let editTimer = 0, editing = false;
 function editScalar(i, v){
   if (!editing){ pushHistory(); editing = true; }
@@ -226,44 +346,60 @@ function editScalar(i, v){
   S.parent.v[i] = v;
   focusDirty = true;
   if (sliderEls[i].out) sliderEls[i].out.textContent = E.fmtScalar(i, v);
+  if (i === 2 || i === 24) syncRelevance();
   $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
   $('plateKind').textContent = kindOf(S.parent);
   $('strip').style.background = E.palCSS(S.parent.v);
   $('code').value = E.encode(S.parent);
+  syncKeep();
   clearTimeout(editTimer);
-  editTimer = setTimeout(() => { editing = false; breed(); syncLitter(); queueLitter(); store.save(); $('undo').disabled = false; }, 650);
+  editTimer = setTimeout(() => { editing = false; breed(); syncLitter(); queueLitter(); store.save(); }, 650);
 }
-$('fApply').addEventListener('click', () => {
+/* Shows a formula problem under the editors and flags the textarea it belongs to (null clears both). */
+function markFormula(msg, which){
+  $('fErr').textContent = msg;
+  $('fText').setAttribute('aria-invalid', which === 'fText' ? 'true' : 'false');
+  $('cText').setAttribute('aria-invalid', which === 'cText' ? 'true' : 'false');
+}
+/* Parse both formulas; returns {t, c} or marks the first error and returns null. */
+function parseFormulas(){
   let t, c;
-  try { t = E.parse($('fText').value); } catch (e) { $('fErr').textContent = 'Shape: ' + e.message; return; }
-  try { c = E.parse($('cText').value); } catch (e) { $('fErr').textContent = 'Colour: ' + e.message; return; }
+  try { t = E.parse($('fText').value); } catch (e) { markFormula('Shape: ' + e.message, 'fText'); return null; }
+  try { c = E.parse($('cText').value); } catch (e) { markFormula('Colour: ' + e.message, 'cText'); return null; }
+  markFormula('', null);
+  return {t, c};
+}
+let checkTimer = 0;
+['fText', 'cText'].forEach(id => {
+  $(id).addEventListener('input', () => { clearTimeout(checkTimer); checkTimer = setTimeout(parseFormulas, 350); });
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); $('fApply').click(); } });
+});
+$('fApply').addEventListener('click', () => {
+  clearTimeout(checkTimer);
+  const parsed = parseFormulas(); if (!parsed) return;
+  const {t, c} = parsed;
   const g = {t, c, v:S.parent.v.slice()};
   if (E.size(t) > 34 || E.cost(t) > 9){ $('fErr').textContent = `Too heavy to render live: ${E.size(t)} nodes, ${E.cost(t)} noise (limit 34 and 9).`; return; }
   const st = E.stats(g);
   if (!st.ok){ $('fErr').textContent = st.why === 'flat' ? 'This formula is constant inside the block, so there is no surface.' : 'This formula changes too fast to render cleanly. Lower some frequencies.'; return; }
   E.fitIso(g);
-  pushHistory(); S.parent = g; breed(); refreshAll(); toast('Formula applied.');
+  pushHistory(); S.parent = g; breed(); refreshAll(); undoToast('Formula applied.');
 });
 
 $('resetGenome').addEventListener('click', () => {
   cancelCountdown(); pushHistory();
   S.parent = E.startGenome(); S.gen = 1;
-  breed(); refreshAll(); toast('Back to the starting specimen. Undo brings yours back.');
+  breed(); refreshAll(); undoToast('Back to the starting specimen.');
 });
 $('resetGenes').addEventListener('click', () => {
   cancelCountdown(); pushHistory();
   const g = E.cloneG(S.parent); g.v = E.startGenome().v.slice(); E.fitIso(g);
-  S.parent = g; breed(); refreshAll(); toast('Genes back to their defaults; the formula is unchanged.');
+  S.parent = g; breed(); refreshAll(); undoToast('Genes back to their defaults; the formula is unchanged.');
 });
-$('undo').addEventListener('click', () => {
-  const h = S.history.pop();
-  if (!h){ toast('Nothing to undo.'); return; }
-  cancelCountdown();
-  S.parent = h.parent; S.gen = h.gen; S.litter = h.litter; S.litterId++;
-  refreshAll();
-});
-$('random').addEventListener('click', () => { pushHistory(); S.parent = E.randomGenome(); S.gen = 1; breed(); refreshAll(); });
-$('reroll').addEventListener('click', () => { cancelCountdown(); breed(); syncLitter(); queueLitter(); });
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('random').addEventListener('click', () => { pushHistory(); S.parent = E.randomGenome(); S.gen = 1; breed(); refreshAll(); undoToast(`Random specimen ${E.tag(S.parent)}.`); });
+$('reroll').addEventListener('click', () => { cancelCountdown(); breed(); syncLitter(); queueLitter(); store.save(); });
 $('rate').addEventListener('input', e => { S.mutation = e.target.value/100; $('rateOut').textContent = e.target.value + '%'; });
 $('rate').addEventListener('change', () => { breed(); syncLitter(); queueLitter(); store.save(); });
 function setToggle(id, on){ $(id).setAttribute('aria-pressed', on ? 'true' : 'false'); }
@@ -271,6 +407,7 @@ $('spin').addEventListener('click', () => { S.spin = !S.spin; setToggle('spin', 
 $('morph').addEventListener('click', () => { S.morph = !S.morph; setToggle('morph', S.morph); focusDirty = true; if (!S.morph) queueLitter(); });
 
 /* Shelf */
+const SHELF_MAX = 12;
 let shelfCanvases = [];
 function renderShelf(){
   const el = $('shelf'); el.innerHTML = ''; shelfCanvases = [];
@@ -279,31 +416,55 @@ function renderShelf(){
     const wrap = document.createElement('div'); wrap.className = 'kept';
     const K = Math.round(76*DPR);
     wrap.innerHTML = `<button class="kept-open" type="button" aria-label="Load kept specimen ${item.k}"><canvas width="${K}" height="${K}"></canvas><span>${item.k} · ${E.tag(g)}</span></button><button class="kept-del" type="button" aria-label="Remove ${item.k} from the shelf">×</button>`;
-    wrap.querySelector('.kept-open').addEventListener('click', () => { pushHistory(); S.parent = E.cloneG(g); breed(); refreshAll(); toast(`Loaded ${item.k}.`); });
-    wrap.querySelector('.kept-del').addEventListener('click', () => { S.shelf = S.shelf.filter(x => x !== item); renderShelf(); store.save(); });
+    wrap.querySelector('.kept-open').addEventListener('click', () => { pushHistory(); S.parent = E.cloneG(g); breed(); refreshAll(); undoToast(`Loaded ${item.k}.`); });
+    wrap.querySelector('.kept-del').addEventListener('click', () => {
+      const at = S.shelf.indexOf(item);
+      S.shelf = S.shelf.filter(x => x !== item); renderShelf(); store.save();
+      toast(`Removed ${item.k} from the shelf.`, {action:'Undo', onAction:() => {
+        if (S.shelf.some(x => x.code === item.code)) return;
+        S.shelf.splice(Math.min(at, S.shelf.length), 0, item);
+        if (S.shelf.length > SHELF_MAX) S.shelf.length = SHELF_MAX;
+        renderShelf(); store.save();
+      }});
+    });
     el.appendChild(wrap);
     shelfCanvases.push({g, cv:wrap.querySelector('canvas'), k:item.k});
   });
   $('shelfEmpty').hidden = S.shelf.length > 0;
   $('shelf').hidden = S.shelf.length === 0;
-  $('shelfCount').textContent = `${S.shelf.length} of 12`;
+  $('shelfCount').textContent = `${S.shelf.length} of ${SHELF_MAX}`;
+  syncKeep();
   if (GL.gl) queueShelf();
+}
+/* Keep reads "Kept · K4" while the current parent is already on the shelf. */
+function syncKeep(){
+  const code = E.encode(S.parent), dup = S.shelf.find(x => x.code === code), b = $('keep');
+  b.textContent = dup ? `Kept · ${dup.k}` : 'Keep';
+  b.classList.toggle('is-kept', !!dup);
 }
 $('keep').addEventListener('click', () => {
   const code = E.encode(S.parent);
   const dup = S.shelf.find(x => x.code === code);
   if (dup){ toast(`Already on the shelf as ${dup.k}.`); return; }
   const first = S.shelf.length === 0;
-  S.kseq += 1; S.shelf.unshift({k:'K' + S.kseq, code});
-  if (S.shelf.length > 12) S.shelf.pop();
+  S.kseq += 1;
+  const item = {k:'K' + S.kseq, code};
+  S.shelf.unshift(item);
+  const dropped = S.shelf.length > SHELF_MAX ? S.shelf.pop() : null;
   renderShelf(); store.save();
-  toast(first ? `Kept as K${S.kseq}. From the next litter on, offspring 5 and 6 graft in branches from the shelf.` : `Kept as K${S.kseq}.`);
+  if (dropped){
+    toast(`Kept as ${item.k}. The shelf holds ${SHELF_MAX}, so ${dropped.k} was dropped.`, {action:'Undo', onAction:() => {
+      S.shelf = S.shelf.filter(x => x !== item); S.shelf.push(dropped); renderShelf(); store.save();
+    }});
+  } else toast(first ? `Kept as ${item.k}. From the next litter on, offspring 5 and 6 graft in branches from the shelf.` : `Kept as ${item.k}.`);
 });
 $('copyCode').addEventListener('click', () => copyText(E.encode(S.parent), 'Genome code copied.', $('code')));
+const shareUrl = () => location.origin + location.pathname + '#' + E.encode(S.parent);
+$('copyLink').addEventListener('click', () => copyText(shareUrl(), 'Link copied. Opening it loads this specimen.', $('code')));
 $('loadCode').addEventListener('click', () => {
   const g = E.decode($('code').value);
   if (!g){ toast('That is not a genome code. It starts with nsb3.'); return; }
-  pushHistory(); S.parent = g; breed(); refreshAll(); toast('Genome loaded.');
+  pushHistory(); S.parent = g; breed(); refreshAll(); undoToast('Genome loaded.');
 });
 function copyText(text, okMsg, selectEl){
   const fallback = () => { if (selectEl){ selectEl.focus(); selectEl.select(); } toast('Copy was blocked here. The text is selected; copy it with ⌘C or Ctrl+C.'); };
@@ -311,16 +472,28 @@ function copyText(text, okMsg, selectEl){
 }
 
 /* Orbit and zoom */
-function zoomBy(f){ S.distT = RENDER.clampZoom(S.distT*f); focusDirty = true; readRes(); }
-const pts = new Map(), pinch = {active:false, d:0};
+function zoomBy(f){ S.distT = RENDER.clampZoom(S.distT*f); focusDirty = true; readRes(); retireHint(); }
+/* The orbit hint goes away after the first orbit or zoom, and stays away on this device. */
+let hinted = false;
+try { hinted = localStorage.getItem('nsb.hinted') === '1'; } catch (e) {}
+document.querySelector('.hint').hidden = hinted;
+function retireHint(){
+  if (hinted) return;
+  hinted = true;
+  const h = document.querySelector('.hint'); h.classList.add('gone'); setTimeout(() => { h.hidden = true; }, 700);
+  try { localStorage.setItem('nsb.hinted', '1'); } catch (e) {}
+}
+const stageEl = $('stage');
+const pts = new Map(), pinch = {active:false, d:0, my:0};
 fc.addEventListener('pointerdown', e => {
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
   try { fc.setPointerCapture(e.pointerId); } catch (_) {}
   if (pts.size === 2){
     const [a, b] = [...pts.values()];
-    pinch.active = true; pinch.d = Math.hypot(a.x - b.x, a.y - b.y) || 1; drag.active = false;
+    pinch.active = true; pinch.d = Math.hypot(a.x - b.x, a.y - b.y) || 1; pinch.my = (a.y + b.y)/2; drag.active = false;
   } else {
     drag.active = true; drag.x = e.clientX; drag.y = e.clientY; drag.touch = e.pointerType === 'touch';
+    retireHint();
   }
   fc.classList.add('grabbing');
 });
@@ -328,8 +501,10 @@ fc.addEventListener('pointermove', e => {
   const p = pts.get(e.pointerId); if (!p) return;
   p.x = e.clientX; p.y = e.clientY;
   if (pinch.active && pts.size >= 2){
-    const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1, my = (a.y + b.y)/2;
     zoomBy(pinch.d/d); pinch.d = d;
+    /* Two fingers moving together vertically tilt the camera (one-finger vertical drags scroll the page on touch). */
+    S.pitch = Math.min(1.25, Math.max(-1.25, S.pitch + (my - pinch.my)*0.008)); pinch.my = my;
     return;
   }
   if (!drag.active) return;
@@ -343,25 +518,36 @@ const endDrag = e => {
   if (!pts.size){ drag.active = false; fc.classList.remove('grabbing'); focusDirty = true; }
 };
 fc.addEventListener('pointerup', endDrag); fc.addEventListener('pointercancel', endDrag); fc.addEventListener('lostpointercapture', endDrag);
+/* The wheel zooms only once the stage is engaged (focused by a click or Tab, fullscreen) or with ⌘/Ctrl held,
+   which also covers trackpad pinch. Otherwise it scrolls the page and a tip says how to zoom. */
+const MOD = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl';
+let tipTimer = 0;
 $('stage').addEventListener('wheel', e => {
   if (e.target.closest('.zoomer')) return;
+  const engaged = stageEl.contains(document.activeElement) || !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (!engaged && !e.ctrlKey && !e.metaKey){
+    const tip = $('stageTip'); tip.textContent = `Click the stage or hold ${MOD} to zoom`; tip.hidden = false;
+    clearTimeout(tipTimer); tipTimer = setTimeout(() => { tip.hidden = true; }, 2200);
+    return;
+  }
   e.preventDefault();
+  $('stageTip').hidden = true;
   zoomBy(Math.exp(e.deltaY*(e.ctrlKey ? 0.01 : 0.0015)));
 }, {passive:false});
 $('zIn').addEventListener('click', () => zoomBy(1/1.3));
 $('zOut').addEventListener('click', () => zoomBy(1.3));
-$('zReset').addEventListener('click', () => { S.distT = 3.55; S.pitch = 0.38; focusDirty = true; readRes(); });
+function resetCamera(){ S.yaw = DEFAULT_CAM.yaw; S.pitch = DEFAULT_CAM.pitch; S.distT = DEFAULT_CAM.dist; focusDirty = true; readRes(); }
+$('zReset').addEventListener('click', resetCamera);
 $('stage').addEventListener('keydown', e => {
   const k = e.key; let used = true;
   if (k === 'ArrowLeft') S.yaw += 0.12; else if (k === 'ArrowRight') S.yaw -= 0.12;
   else if (k === 'ArrowUp') S.pitch = Math.min(1.25, S.pitch + 0.1); else if (k === 'ArrowDown') S.pitch = Math.max(-1.25, S.pitch - 0.1);
   else if (k === '+' || k === '=') zoomBy(1/1.3); else if (k === '-' || k === '_') zoomBy(1.3);
-  else if (k === '0'){ S.distT = 3.55; readRes(); }
+  else if (k === '0') resetCamera();
   else used = false;
-  if (used){ e.preventDefault(); keyHeld = 1; focusDirty = true; clearTimeout(keyTimer); keyTimer = setTimeout(() => { keyHeld = 0; focusDirty = true; }, 220); }
+  if (used){ e.preventDefault(); retireHint(); keyHeld = 1; focusDirty = true; clearTimeout(keyTimer); keyTimer = setTimeout(() => { keyHeld = 0; focusDirty = true; }, 220); }
 });
 /* Fullscreen (desktop browsers) */
-const stageEl = $('stage');
 const fsEnabled = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 $('zFull').hidden = !fsEnabled;
 $('zFull').addEventListener('click', async () => {
@@ -370,7 +556,7 @@ $('zFull').addEventListener('click', async () => {
     else await (stageEl.requestFullscreen ? stageEl.requestFullscreen() : stageEl.webkitRequestFullscreen());
   } catch (e) { toast('Fullscreen isn’t available in this view.'); }
 });
-const onFs = () => { const on = !!(document.fullscreenElement || document.webkitFullscreenElement); $('zFull').textContent = on ? 'Exit fullscreen' : 'Fullscreen'; focusDirty = true; };
+const onFs = () => { const on = !!(document.fullscreenElement || document.webkitFullscreenElement); setToggle('zFull', on); $('zFull').title = on ? 'Exit fullscreen' : 'Fullscreen'; focusDirty = true; };
 document.addEventListener('fullscreenchange', onFs); document.addEventListener('webkitfullscreenchange', onFs);
 /* Large view */
 function setBig(on){
@@ -438,7 +624,7 @@ function curStatus(text){
   const el = $('curStatus');
   if (text){ el.textContent = text; return; }
   const why = aiReason();
-  if (why === 'off'){ el.textContent = 'off'; return; }
+  if (why === 'off'){ el.textContent = ''; return; }
   if (CUR.busy){ el.textContent = `looking at generation ${S.gen + 1}…`; return; }
   if (why){ el.textContent = 'not set up · see model settings'; return; }
   const agree = CUR.rounds ? ` · you agreed ${CUR.agree} of ${CUR.rounds}` : '';
@@ -630,6 +816,7 @@ function applyVerdict(res, who, name){
       if (slot === fav) slot = fav === 6 ? 5 : 6;
       S.litter[slot - 1] = {g:child.g, label:name, by:'ai'};
       replaced = slot;
+      pups[slot - 1].btn.classList.add('pending'); pups[slot - 1].cv.dataset.done = '';
       queueThumb(child.g, pups[slot - 1].cv, 'pup' + (slot - 1), thumbSize);
     }
     syncLitter();
@@ -739,12 +926,37 @@ function openSheet(view){
   $('snapView').hidden = view !== 'snap'; $('glslView').hidden = view !== 'glsl';
   $('sheetTitle').textContent = view === 'snap' ? 'Snapshot' : 'Shader code';
   sheet.querySelector('.sheet-panel').classList.toggle('wide', view === 'snap');
-  sheet.hidden = false; $('sheetClose').focus();
+  if (!sheet.open) sheet.showModal();
+  $('sheetClose').focus();
 }
-function closeSheet(){ sheet.hidden = true; cancelSnapshot(); if (sheetReturn && sheetReturn.focus) sheetReturn.focus(); }
+/* A modal <dialog>: focus stays inside, the page behind is inert, Escape closes it natively. */
+function closeSheet(){ if (sheet.open) sheet.close(); }
+sheet.addEventListener('close', () => { cancelSnapshot(); if (sheetReturn && sheetReturn.focus) sheetReturn.focus(); });
 $('sheetClose').addEventListener('click', closeSheet);
 sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+/* Page-wide shortcuts. Skipped while typing, while a sheet or dialog is open, and for keys the stage already used. */
+const keys = $('keys');
+$('keysOpen').addEventListener('click', () => keys.showModal());
+$('keysClose').addEventListener('click', () => keys.close());
+keys.addEventListener('click', e => { if (e.target === keys) keys.close(); });
+const typing = el => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+document.addEventListener('keydown', e => {
+  if (e.defaultPrevented || e.altKey || typing(e.target) || sheet.open || keys.open) return;
+  const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  let act = null;
+  if (mod){
+    if (k === 'z') act = e.shiftKey ? redo : undo;
+    else if (k === 'y' && e.ctrlKey) act = redo;
+  } else if (e.key === '?') act = () => keys.showModal();
+  else if (/^[1-6]$/.test(e.key)) act = () => adopt(Number(e.key) - 1, 'you');
+  else if (k === 'z') act = e.shiftKey ? redo : undo;
+  else if (!e.shiftKey){
+    act = {n:() => $('reroll').click(), k:() => $('keep').click(), r:() => $('random').click(),
+           s:() => $('spin').click(), m:() => $('morph').click()}[k] || null;
+  }
+  if (!act) return;
+  e.preventDefault(); act();
+});
 /* Zoomable preview: z is screen px per image px; the stage element is sized in image px and transformed. */
 const VW = {W:1, H:1, z:1, tx:0, ty:0, fitted:true, pts:new Map(), pinch:null, url:null};
 const viewer = $('viewer');
@@ -830,7 +1042,15 @@ function updateSnapInfo(){
   const [W, H] = snapDims(), ss = Number($('snapSS').value);
   $('snapInfo').textContent = `${W} × ${H} px · ${(W*H/1e6).toFixed(1)} megapixels · ${ss === 2 ? 4 : 1} sample${ss === 2 ? 's' : ''} per pixel`;
 }
-['snapSize', 'snapFrame', 'snapSS'].forEach(id => $(id).addEventListener('change', updateSnapInfo));
+const SNAP_OPTS = ['snapSize', 'snapFrame', 'snapSS'];
+SNAP_OPTS.forEach(id => $(id).addEventListener('change', () => {
+  updateSnapInfo();
+  try { localStorage.setItem('nsb.snap', JSON.stringify(Object.fromEntries(SNAP_OPTS.map(k => [k, $(k).value])))); } catch (e) {}
+}));
+try {
+  const o = JSON.parse(localStorage.getItem('nsb.snap') || 'null') || {};
+  SNAP_OPTS.forEach(k => { if ([...$(k).options].some(x => x.value === o[k])) $(k).value = o[k]; });
+} catch (e) {}
 const pngStream = RENDER.pngStream;
 const filterRows = RENDER.filterRows;
 const fmtTime = ms => { const t = Math.round(ms/1000); return t < 60 ? `${t} s` : `${Math.floor(t/60)} min ${String(t % 60).padStart(2, '0')} s`; };
@@ -911,7 +1131,7 @@ async function finishSnapshot(s){
     const blob = await s.png.close();
     if (snap !== s) return;
     snap = null; $('snapGo').disabled = false;
-    snapBlob = {blob, name:`noise-sculpture-${s.tag}-${s.W}x${s.H}.png`}; snapFor = s.forKey;
+    snapBlob = {blob, name:`consculpta-${s.tag}-${s.W}x${s.H}.png`}; snapFor = s.forKey;
     const img = new Image();
     if (VW.url) URL.revokeObjectURL(VW.url);
     VW.url = URL.createObjectURL(blob); img.src = VW.url; img.alt = '';
@@ -967,12 +1187,36 @@ function exportGLSL(){
     camExpr: `${f4(S.yaw % (Math.PI*2))} + iTime*0.32 - m.x*6.2832, clamp(${f4(S.pitch)} + m.y*2.0, -1.25, 1.25), ${f4(S.dist)}`,
   });
 }
-$('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); $('glslSave').hidden = false; openSheet('glsl'); });
+$('glsl').addEventListener('click', () => {
+  const src = exportGLSL();
+  $('glslText').value = src; $('glslSave').hidden = false;
+  $('glslInfo').textContent = `${src.split('\n').length} lines · G${S.gen} · ${E.tag(S.parent)}`;
+  openSheet('glsl');
+});
 $('glslCopy').addEventListener('click', () => copyText($('glslText').value, 'Shader copied. Paste it into a new shader on shadertoy.com.', $('glslText')));
-$('glslSave').addEventListener('click', () => saveFile(`noise-sculpture-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
+$('glslSave').addEventListener('click', () => saveFile(`consculpta-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
 
-let toastTimer = 0;
-function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3600); }
+let toastTimer = 0, toastKind = '';
+/* opt.action adds a button (e.g. Undo) and keeps the toast up longer; hovering or focusing it holds it open. */
+function toast(msg, opt){
+  const t = $('toast'), o = opt || {};
+  const text = document.createElement('span'); text.textContent = msg;
+  t.replaceChildren(text);
+  if (o.action){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = o.action;
+    b.addEventListener('click', () => { hideToast(); o.onAction(); });
+    t.appendChild(b);
+  }
+  toastKind = o.kind || ''; t.hidden = false;
+  armToast(o.action ? 10000 : 3600);
+}
+function armToast(ms){ clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, ms); }
+function hideToast(){ clearTimeout(toastTimer); $('toast').hidden = true; toastKind = ''; }
+function dismissToast(kind){ if (toastKind === kind) hideToast(); }
+$('toast').addEventListener('pointerenter', () => clearTimeout(toastTimer));
+$('toast').addEventListener('pointerleave', () => armToast(2500));
+$('toast').addEventListener('focusin', () => clearTimeout(toastTimer));
+$('toast').addEventListener('focusout', () => armToast(2500));
 
 /* ================= Boot ================= */
 function showStageError(text){ const m = $('stageMsg'); m.innerHTML = '<p></p>'; m.querySelector('p').textContent = text; m.hidden = false; }
@@ -989,16 +1233,15 @@ function onTheme(){ BG = readBg(); syncRendererBg(); focusDirty = true; queueLit
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 const saved = store.load();
-if (!saved){
-  S.yaw = 4.4434;
-  S.pitch = 0.3615;
-  S.dist = S.distT = 3.55;
-}
+let savedLitter = null;
 if (saved){
   const g = E.decode(saved.p); if (g){ S.parent = g; S.gen = saved.gen || 1; }
   if (typeof saved.m === 'number'){ S.mutation = saved.m; $('rate').value = Math.round(saved.m*100); $('rateOut').textContent = Math.round(saved.m*100) + '%'; }
-  if (Array.isArray(saved.shelf)) S.shelf = saved.shelf.filter(x => x && E.decode(x.code)).slice(0, 12);
+  if (Array.isArray(saved.shelf)) S.shelf = saved.shelf.filter(x => x && E.decode(x.code)).slice(0, SHELF_MAX);
   S.kseq = saved.kseq || S.shelf.length;
+  if (Array.isArray(saved.hist)) S.history = saved.hist.map(h => ({parent:E.decode(h && h.p), gen:(h && h.gen) || 1, litter:null})).filter(h => h.parent);
+  const lit = g && Array.isArray(saved.lit) ? saved.lit.map(k => ({g:E.decode(k && k.c), label:(k && k.l) || '', by:k && k.ai ? 'ai' : undefined})) : [];
+  if (lit.length === 6 && lit.every(k => k.g)) savedLitter = lit;
   if (saved.cur){
     CUR.every = [0, 2, 3, 5].includes(saved.cur.every) ? saved.cur.every : 3;
     CUR.role = saved.cur.role === 'turns' ? 'turns' : 'advise';
@@ -1007,16 +1250,31 @@ if (saved){
     CUR.agree = saved.cur.agree || 0; CUR.rounds = saved.cur.rounds || 0;
   }
 }
+/* Share link: #nsb3… loads that specimen once, keeps yours one Undo away, and clears the hash. */
+let sharedLoaded = false;
+(() => {
+  let code = location.hash.slice(1);
+  try { code = decodeURIComponent(code); } catch (e) {}
+  if (!code) return;
+  const g = E.decode(code);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!g || E.encode(g) === E.encode(S.parent)) return;
+  S.history.push({parent:E.cloneG(S.parent), gen:S.gen, litter:null});
+  S.parent = g; S.gen = 1; savedLitter = null; sharedLoaded = true;
+})();
 $('curEvery').value = String(CUR.every); $('curRole').value = CUR.role;
 initAiBreeder();
 setToggle('spin', S.spin);
 BG = readBg();
 syncRendererBg();
-breed(); syncParent(); syncLitter(); renderLog(); curStatus();
+if (savedLitter){ S.litter = savedLitter; S.litterId++; } else breed();
+syncParent(); syncLitter(); renderLog(); curStatus(); store.save();
+if (sharedLoaded) afterFirstDraw = () => undoToast(`Loaded shared specimen ${E.tag(S.parent)}. Undo returns to yours.`);
 const footerCopy = $('footerCopy');
 if (footerCopy) footerCopy.textContent = `© ${new Date().getFullYear()} carlok`;
 if (!glInit()){
   showStageError('This page needs WebGL 2. Current Safari, Chrome and Firefox all support it.');
+  if (afterFirstDraw){ afterFirstDraw(); afterFirstDraw = null; }
 } else {
   if (GL.info){
     const raw = String(GL.info), m = /Renderer: ([^,)]+)/.exec(raw);

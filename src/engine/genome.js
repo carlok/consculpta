@@ -28,7 +28,7 @@ export const SCALARS = [
   { n: 'd blue', f: lin(0, 1) },
   { n: 'Hue shift', f: lin(0, 1) },
   { n: 'Formula vs depth', f: lin(0, 1) },
-  { n: 'Color spread', f: lin(0.2, 1.4) },
+  { n: 'Colour spread', f: lin(0.2, 1.4) },
   { n: 'Gloss', f: lin(0, 1) },
   { n: 'Light angle', f: (g) => g * TAU, deg: 1 },
   { n: 'Strands', f: (g) => (g >= 0.75 ? 1 : 0), names: ['off', 'on'] },

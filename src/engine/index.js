@@ -16,7 +16,19 @@ import {
 } from './default-specimen.js';
 import { js } from './evaluate.js';
 import { BANK, crossover, mutate, randomGenome, startGenome } from './evolve.js';
-import { cloneG, decode, encode, fmtScalar, NS, SCALARS, tag, val } from './genome.js';
+import {
+  cloneG,
+  DISCRETE,
+  decode,
+  encode,
+  fmtScalar,
+  NS,
+  SCALARS,
+  STRANDS_OFF,
+  STRANDS_ON,
+  tag,
+  val,
+} from './genome.js';
 import { fbmJS, seedVec, snoise } from './noise.js';
 import { BY_KIND, LANG, NCHILD, OPS } from './ops.js';
 import { palCSS, paletteToGenes } from './palette.js';
@@ -34,6 +46,7 @@ export {
   DEFAULT_CAMERA,
   DEFAULT_SPECIMEN_CODE,
   DEFAULT_SPECIMEN_TAG,
+  DISCRETE,
   decode,
   defaultSpecimenGenome,
   depth,
@@ -57,6 +70,8 @@ export {
   print,
   randomGenome,
   SCALARS,
+  STRANDS_OFF,
+  STRANDS_ON,
   seedVec,
   setRandom,
   size,
@@ -78,6 +93,9 @@ const engine = {
   LANG,
   SCALARS,
   NS,
+  DISCRETE,
+  STRANDS_ON,
+  STRANDS_OFF,
   val,
   fmtScalar,
   snoise,
