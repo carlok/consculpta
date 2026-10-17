@@ -65,4 +65,30 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#focus')).toBeVisible();
     expect(errors, `console errors: ${errors.join('; ')}`).toEqual([]);
   });
+
+  test('dims stale litter thumbnails until the new litter renders', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/consculpta/');
+    const pups = page.locator('#litter .pup');
+    await expect(pups).toHaveCount(6);
+    await expect(page.locator('#litter .pup.pending')).toHaveCount(0, { timeout: 90_000 });
+
+    await page.locator('#reroll').click();
+    // Labels change at once; every picture is stale until its render job runs.
+    expect(await page.locator('#litter .pup.pending').count()).toBeGreaterThan(0);
+    await expect(page.locator('#litter .pup.pending')).toHaveCount(0, { timeout: 90_000 });
+  });
+
+  test('genome summary describes the current parent', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#genomeSum')).toHaveText(
+      /^\d+ nodes · \d+ noise · (sphere|cube|drum)$/,
+    );
+  });
+
+  test('hides Large view on phones', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/consculpta/');
+    await expect(page.locator('#bigView')).toBeHidden();
+  });
 });

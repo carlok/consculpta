@@ -45,7 +45,7 @@ p{margin:0}
 @media (min-width:900px) and (min-height:860px){.bench>.col:first-child{position:sticky;top:calc(16px + env(safe-area-inset-top, 0px))}}
 .col{display:grid;gap:14px;min-width:0}
 
-.stage{position:relative;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--stage);overflow:hidden;outline:none}
+.stage{position:relative;container-type:inline-size;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--stage);overflow:hidden;outline:none}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:pan-y}
 .stage canvas.grabbing{cursor:grabbing}
 .stage:focus-visible{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--accent)}
@@ -62,10 +62,12 @@ p{margin:0}
 .zoomer .btn{padding:7px 11px}
 .zoomer .zb{width:32px;height:32px;padding:0;justify-content:center;font-size:18px}
 @media (max-width:600px){.zoomer{top:10px;left:10px;right:auto;bottom:auto}.hint{display:none}}
+/* Narrow stage (e.g. 1024 px window, side-by-side): plate and zoomer would touch along the bottom edge. */
+@container (max-width:520px){.zoomer{top:10px;right:10px;left:auto;bottom:auto}.hint{display:none}}
 .breed,.litter-block,.keepers{display:grid;gap:14px;min-width:0}
-.only-wide{display:none}
+.btn.only-wide{display:none}
 @media (min-width:700px){
-  .only-wide{display:inline-flex}
+  .btn.only-wide{display:inline-flex}
   .bench.big .stage{aspect-ratio:auto;height:clamp(420px, calc(100vh - 120px), 1600px)}
 }
 .bench.big{grid-template-columns:minmax(0,1fr)}
@@ -107,6 +109,11 @@ p{margin:0}
 .pup:focus-visible{outline:none}
 .pup:focus-visible canvas{outline:2px solid var(--accent);outline-offset:2px}
 .pup:active canvas{transform:scale(.985)}
+/* Canvas still shows the previous litter until its render job runs. */
+.pup.pending canvas{opacity:.35}
+.pup.pending .pup-frame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);background-size:50% 100%;background-repeat:no-repeat;animation:pending 1.1s linear infinite}
+@keyframes pending{from{background-position:-100% 0}to{background-position:200% 0}}
+@media (prefers-reduced-motion: reduce){.pup.pending .pup-frame::after{animation:none;background:var(--rule)}}
 .pup.picked canvas{border-color:var(--ai-accent);box-shadow:inset 0 0 0 1px var(--ai-accent)}
 .badge{position:absolute;left:6px;top:6px;font:500 10px/1 var(--f-mono);letter-spacing:.05em;background:var(--ai-accent);color:var(--on-ai-accent);padding:4px 6px}
 .pup-meta{display:flex;justify-content:space-between;gap:6px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;color:var(--muted);min-width:0}

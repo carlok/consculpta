@@ -349,10 +349,11 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = matchMedia('(pointer: coarse)').matches;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 const THUMB_CAM = [0.7, 0.38, 3.35];
+const DEFAULT_CAM = {yaw:4.4434, pitch:0.3615, dist:3.55};
 const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
 
 const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[],
-           spin:!reduceMotion, morph:false, morphT:0, yaw:4.4434, pitch:0.3615, dist:3.55, distT:3.55};
+           spin:!reduceMotion, morph:false, morphT:0, yaw:DEFAULT_CAM.yaw, pitch:DEFAULT_CAM.pitch, dist:DEFAULT_CAM.dist, distT:DEFAULT_CAM.dist};
 const CUR = {every:3, role:'advise', since:0, busy:null, notes:[], log:[], picks:[], 
              agree:0, rounds:0, pendingAsk:false, countdown:null};
 let BG = [0.82, 0.85, 0.81];
@@ -414,7 +415,7 @@ function readBg(){
   return [0.82, 0.85, 0.81];
 }
 function stageCss(){ const r = $('stage').getBoundingClientRect(); return [Math.max(64, Math.round(r.width)), Math.max(64, Math.round(r.height))]; }
-function readRes(){ $('readRes').textContent = `${fc.width} × ${fc.height} px · zoom ${(3.55/S.distT).toFixed(2)}×`; }
+function readRes(){ $('readRes').textContent = `${fc.width} × ${fc.height} px · zoom ${(DEFAULT_CAM.dist/S.distT).toFixed(2)}×`; }
 function setScale(s){
   scale = Math.min(1, Math.max(0.28, s));
   const [w, h] = stageCss();
@@ -433,7 +434,12 @@ function drawFocus(){
   return true;
 }
 function queueThumb(g, canvas, key, size){ queue = queue.filter(q => q.key !== key); queue.push({g, canvas, key, size, tries:0}); if (GL.gl) programFor(g); }
-function queueLitter(){ S.litter.forEach((k, i) => queueThumb(k.g, pups[i].cv, 'pup' + i, thumbSize)); }
+function queueLitter(){
+  S.litter.forEach((k, i) => {
+    if (pups[i].cv.dataset.done !== String(S.litterId)) pups[i].btn.classList.add('pending');
+    queueThumb(k.g, pups[i].cv, 'pup' + i, thumbSize);
+  });
+}
 function queueShelf(){ shelfCanvases.forEach(({g, cv, k}) => queueThumb(g, cv, 'kept' + k, Math.round(76*DPR))); }
 function processQueue(){
   for (let n = 0; n < queue.length; n++){
@@ -448,7 +454,7 @@ function processQueue(){
     const img = readFBO(T, T);
     if (job.canvas.width !== T){ job.canvas.width = job.canvas.height = T; }
     job.canvas.getContext('2d').putImageData(img, 0, 0);
-    job.canvas.dataset.done = String(S.litterId);
+    markDone(job.canvas);
     return;
   }
 }
@@ -456,7 +462,12 @@ function paintError(cv, T){
   if (cv.width !== T){ cv.width = cv.height = T; }
   const ctx = cv.getContext('2d'); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--stage'); ctx.fillRect(0, 0, T, T);
   ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted'); ctx.font = `${Math.round(T/14)}px ui-monospace, monospace`; ctx.fillText('shader error', T*0.08, T*0.52);
+  markDone(cv);
+}
+/* A litter canvas shows stale pixels until its job runs; .pending dims it so the label never sits over the wrong picture. */
+function markDone(cv){
   cv.dataset.done = String(S.litterId);
+  const btn = cv.closest('.pup'); if (btn) btn.classList.remove('pending');
 }
 function litterRendered(){ /* every litter canvas painted for the current litter */ return pups.every(p => p.cv.dataset.done === String(S.litterId)) && !queue.some(q => q.key.startsWith('pup')); }
 
@@ -532,6 +543,7 @@ function syncParent(){
   if (document.activeElement !== $('fText')) $('fText').value = E.pretty(S.parent.t);
   if (document.activeElement !== $('cText')) $('cText').value = E.pretty(S.parent.c);
   $('fStats').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise`;
+  $('genomeSum').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise · ${E.fmtScalar(4, S.parent.v[4])}`;
   $('fErr').textContent = '';
   if (document.activeElement !== $('code')) $('code').value = E.encode(S.parent);
   $('undo').disabled = S.history.length === 0;
@@ -685,13 +697,14 @@ $('stage').addEventListener('wheel', e => {
 }, {passive:false});
 $('zIn').addEventListener('click', () => zoomBy(1/1.3));
 $('zOut').addEventListener('click', () => zoomBy(1.3));
-$('zReset').addEventListener('click', () => { S.distT = 3.55; S.pitch = 0.38; focusDirty = true; readRes(); });
+function resetCamera(){ S.yaw = DEFAULT_CAM.yaw; S.pitch = DEFAULT_CAM.pitch; S.distT = DEFAULT_CAM.dist; focusDirty = true; readRes(); }
+$('zReset').addEventListener('click', resetCamera);
 $('stage').addEventListener('keydown', e => {
   const k = e.key; let used = true;
   if (k === 'ArrowLeft') S.yaw += 0.12; else if (k === 'ArrowRight') S.yaw -= 0.12;
   else if (k === 'ArrowUp') S.pitch = Math.min(1.25, S.pitch + 0.1); else if (k === 'ArrowDown') S.pitch = Math.max(-1.25, S.pitch - 0.1);
   else if (k === '+' || k === '=') zoomBy(1/1.3); else if (k === '-' || k === '_') zoomBy(1.3);
-  else if (k === '0'){ S.distT = 3.55; readRes(); }
+  else if (k === '0') resetCamera();
   else used = false;
   if (used){ e.preventDefault(); keyHeld = 1; focusDirty = true; clearTimeout(keyTimer); keyTimer = setTimeout(() => { keyHeld = 0; focusDirty = true; }, 220); }
 });
@@ -965,6 +978,7 @@ function applyVerdict(res, who, name){
       if (slot === fav) slot = fav === 6 ? 5 : 6;
       S.litter[slot - 1] = {g:child.g, label:name, by:'ai'};
       replaced = slot;
+      pups[slot - 1].btn.classList.add('pending');
       queueThumb(child.g, pups[slot - 1].cv, 'pup' + (slot - 1), thumbSize);
     }
     syncLitter();
@@ -1291,7 +1305,7 @@ async function finishSnapshot(s){
     const blob = await s.png.close();
     if (snap !== s) return;
     snap = null; $('snapGo').disabled = false;
-    snapBlob = {blob, name:`noise-sculpture-${s.tag}-${s.W}x${s.H}.png`}; snapFor = s.forKey;
+    snapBlob = {blob, name:`consculpta-${s.tag}-${s.W}x${s.H}.png`}; snapFor = s.forKey;
     const img = new Image();
     if (VW.url) URL.revokeObjectURL(VW.url);
     VW.url = URL.createObjectURL(blob); img.src = VW.url; img.alt = '';
@@ -1353,7 +1367,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
 }
 $('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); $('glslSave').hidden = false; openSheet('glsl'); });
 $('glslCopy').addEventListener('click', () => copyText($('glslText').value, 'Shader copied. Paste it into a new shader on shadertoy.com.', $('glslText')));
-$('glslSave').addEventListener('click', () => saveFile(`noise-sculpture-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
+$('glslSave').addEventListener('click', () => saveFile(`consculpta-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
 
 let toastTimer = 0;
 function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3600); }
@@ -1373,11 +1387,6 @@ function onTheme(){ BG = readBg(); focusDirty = true; queueLitter(); queueShelf(
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 const saved = store.load();
-if (!saved){
-  S.yaw = 4.4434;
-  S.pitch = 0.3615;
-  S.dist = S.distT = 3.55;
-}
 if (saved){
   const g = E.decode(saved.p); if (g){ S.parent = g; S.gen = saved.gen || 1; }
   if (typeof saved.m === 'number'){ S.mutation = saved.m; $('rate').value = Math.round(saved.m*100); $('rateOut').textContent = Math.round(saved.m*100) + '%'; }

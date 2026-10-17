@@ -14,6 +14,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Litter thumbnails are dimmed with a thin progress bar until the new litter renders, so a new label never sits over the previous litter's picture.
+- **Large view** no longer shows on phones (`.btn` display rule overrode `.only-wide`).
+- Camera **Reset** and the `0` key both return to the default camera (azimuth, elevation and distance).
+- Snapshot and shader downloads are named `consculpta-…` instead of `noise-sculpture-…`.
+- Genome summary shows the parent's node count, noise cost and block instead of a fixed "formula · 25 genes".
+- Stage zoom controls move to the top edge on narrow stages so they no longer collide with the specimen plate.
+- Lede capitalisation; gene label "Colour spread" matches the British spelling used elsewhere.
 - E2E first-visit test waits for full legacy app bootstrap (footer + default specimen) so slow CI WebGL init does not hit the 60s test timeout.
 
 ### Changed
