@@ -57,9 +57,31 @@ for (let i = 0; i < 6; i++){
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'pup'; b.id = 'pup-' + i;
   b.innerHTML = '<span class="pup-frame"><canvas width="240" height="240"></canvas><span class="badge" hidden>★ AI</span></span><span class="pup-meta"><span class="pup-id"></span><span class="pup-op"></span></span>';
-  b.addEventListener('click', () => adopt(i, 'you'));
+  b.addEventListener('click', () => { if (press.used){ press.used = false; return; } adopt(i, 'you'); });
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse'){ press.used = false; armPreview(i); } });
+  b.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') endPreview(); });
+  b.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse'){ press.used = false; armPreview(i, () => { press.used = true; }); } });
+  ['pointerup', 'pointercancel'].forEach(t => b.addEventListener(t, e => { if (e.pointerType !== 'mouse') endPreview(); }));
+  b.addEventListener('contextmenu', e => { if (press.used) e.preventDefault(); });
   $('litter').appendChild(b);
   pups.push({btn:b, cv:b.querySelector('canvas'), id:b.querySelector('.pup-id'), op:b.querySelector('.pup-op'), badge:b.querySelector('.badge')});
+}
+/* Preview: resting the pointer on a thumbnail (or a long press on touch) shows that offspring on the stage. */
+const PREVIEW_MS = 400;
+let preview = null, previewTimer = 0;
+const press = {used:false};   // a long press showed a preview, so the click that follows does not adopt
+function armPreview(i, onShow){
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const k = S.litter[i]; if (!k) return;
+    preview = {i, g:k.g}; focusDirty = true; syncPlate();
+    if (onShow) onShow();
+  }, PREVIEW_MS);
+}
+function endPreview(){
+  clearTimeout(previewTimer);
+  if (!preview) return;
+  preview = null; focusDirty = true; syncPlate();
 }
 /* Gene controls. Each entry has sync(v) to show a gene value; discrete genes get radio segments, the rest sliders. */
 const sliderEls = [];
@@ -129,7 +151,43 @@ LIGHT.forEach(i => $('gLight').appendChild(sliderRow(i)));
     });
   });
 })();
-$('langRef').textContent = E.LANG;
+/* Language reference: "syntax   description" lines become a two-column list. */
+(() => {
+  const dl = document.createElement('dl');
+  E.LANG.split('\n').forEach(line => {
+    const m = /^(.*?\S)\s{3,}(\S.*)$/.exec(line);
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = m ? m[1] : line; dd.textContent = m ? m[2] : '';
+    if (!m) dt.className = 'span';
+    dl.append(dt); if (m) dl.append(dd);
+  });
+  $('langRef').appendChild(dl);
+})();
+/* Palette presets, in cosine-palette terms (E.paletteToGenes clamps them into the gene ranges). */
+const PRESETS = [
+  ['Spectrum', {a:[0.5, 0.5, 0.5], b:[0.5, 0.5, 0.5], c:[1, 1, 1], d:[0, 0.33, 0.67]}],
+  ['Dusk', {a:[0.5, 0.5, 0.5], b:[0.5, 0.5, 0.5], c:[1, 1, 1], d:[0, 0.1, 0.2]}],
+  ['Sea', {a:[0.5, 0.5, 0.5], b:[0.5, 0.5, 0.5], c:[1, 1, 0.5], d:[0.8, 0.9, 0.3]}],
+  ['Ember', {a:[0.5, 0.5, 0.5], b:[0.5, 0.5, 0.5], c:[1, 0.7, 0.4], d:[0, 0.15, 0.2]}],
+  ['Moss', {a:[0.5, 0.5, 0.4], b:[0.4, 0.45, 0.3], c:[1.5, 1, 0.3], d:[0.5, 0.2, 0.25]}],
+  ['Mineral', {a:[0.7, 0.5, 0.4], b:[0.2, 0.4, 0.2], c:[1.7, 1, 1], d:[0, 0.25, 0.25]}],
+  ['Bone', {a:[0.62, 0.6, 0.56], b:[0.18, 0.17, 0.16], c:[1, 1, 1], d:[0, 0.05, 0.1]}],
+  ['Ink', {a:[0.35, 0.38, 0.45], b:[0.3, 0.3, 0.35], c:[1, 1, 1], d:[0.55, 0.6, 0.65]}],
+];
+PRESETS.forEach(([name, pal]) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'preset'; b.title = name;
+  b.setAttribute('aria-label', `${name} palette`);
+  const v = S.parent.v.slice(); E.paletteToGenes(pal, v);
+  b.style.background = E.palCSS(v);
+  b.addEventListener('click', () => {
+    cancelCountdown(); clearTimeout(editTimer); editing = false;
+    pushHistory();
+    const g = E.cloneG(S.parent); E.paletteToGenes(pal, g.v);
+    S.parent = g; breed(); refreshAll(); undoToast(`${name} palette.`);
+  });
+  $('presets').appendChild(b);
+});
 
 /* ================= Rendering orchestration ================= */
 function readBg(){
@@ -151,6 +209,14 @@ function setScale(s){
 }
 
 function drawFocus(){
+  /* A preview whose shader is still compiling shows the parent meanwhile; returning false keeps the frame dirty. */
+  if (preview){
+    const pe = programFor(preview.g);
+    if (ready(pe)){ stageBusy(''); drawWith(pe, preview.g, {w:fc.width, h:fc.height, cam:[S.yaw, S.pitch, S.dist], mt:S.morphT}); return true; }
+    const e = programFor(S.parent);
+    if (ready(e)) drawWith(e, S.parent, {w:fc.width, h:fc.height, cam:[S.yaw, S.pitch, S.dist], mt:S.morphT});
+    return false;
+  }
   const e = programFor(S.parent);
   if (!ready(e)){
     const err = e.state === 'error';
@@ -189,7 +255,12 @@ function processQueue(){
   if (RENDER.processThumbQueue(queue, GLR, {cam:THUMB_CAM, morphT:S.morphT, litterId:S.litterId, paintError})){
     pups.forEach(p => { if (p.cv.dataset.done === String(S.litterId)) p.btn.classList.remove('pending'); });
   }
+  if (announceFor === S.litterId && litterRendered()){ announceFor = 0; announce('Litter ready.'); }
 }
+/* "Litter ready" is said once per litter the user asked for (not the one shown at load). */
+let booted = false, announceFor = 0;
+function newLitter(){ S.litterId++; if (booted) announceFor = S.litterId; }
+function announce(text){ const el = $('announce'); el.textContent = ''; setTimeout(() => { el.textContent = text; }, 60); }
 function paintError(cv, T){
   if (cv.width !== T){ cv.width = cv.height = T; }
   const ctx = cv.getContext('2d'); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--stage'); ctx.fillRect(0, 0, T, T);
@@ -250,11 +321,38 @@ function pushHistory(){
   dismissToast('history');
   syncHistoryButtons();
 }
-function syncHistoryButtons(){ $('undo').disabled = S.history.length === 0; $('redo').disabled = S.future.length === 0; }
+function syncHistoryButtons(){ $('undo').disabled = S.history.length === 0; $('redo').disabled = S.future.length === 0; renderLineage(); }
+/* Lineage strip: the current parent, then the last few in the history, newest first (CSS lays it out oldest-left).
+   A click brings one back as a new step. */
+const LINEAGE_N = 10;
+function renderLineage(){
+  const ol = $('lineageList'), from = Math.max(0, S.history.length - LINEAGE_N);
+  const cur = document.createElement('li'); cur.className = 'lin-cur'; cur.setAttribute('aria-current', 'step');
+  ol.replaceChildren(cur);
+  S.history.slice(from).reverse().forEach(h => {
+    const li = document.createElement('li'), b = document.createElement('button'), label = `G${h.gen} · ${E.tag(h.parent)}`;
+    b.type = 'button'; b.className = 'lin'; b.textContent = label;
+    b.setAttribute('aria-label', `Go back to ${label}`);
+    b.addEventListener('click', () => backTo(h));
+    li.appendChild(b); ol.appendChild(li);
+  });
+  $('lineage').hidden = S.history.length === 0;
+  syncLineageCur();
+}
+function syncLineageCur(){ const c = document.querySelector('#lineageList .lin-cur'); if (c) c.textContent = `G${S.gen} · ${E.tag(S.parent)}`; }
+function backTo(h){
+  if (!h) return;
+  cancelCountdown(); clearTimeout(editTimer); editing = false;
+  pushHistory();
+  S.parent = E.cloneG(h.parent); S.gen = h.gen;
+  if (h.litter && h.litter.length === 6){ S.litter = h.litter.map(k => ({...k, g:E.cloneG(k.g)})); newLitter(); } else breed();
+  refreshAll(); pulsePlate();
+  undoToast(`Back to G${S.gen} · ${E.tag(S.parent)}.`);
+}
 function restoreState(h){
   cancelCountdown(); clearTimeout(editTimer); editing = false;
   S.parent = h.parent; S.gen = h.gen;
-  if (h.litter && h.litter.length === 6){ S.litter = h.litter; S.litterId++; } else breed();   // history restored from storage has no litter
+  if (h.litter && h.litter.length === 6){ S.litter = h.litter; newLitter(); } else breed();   // history restored from storage has no litter
   refreshAll();
 }
 function undo(){
@@ -286,9 +384,10 @@ function breed(aiChild){
     kids.push({g:m.g, label:m.label});
   }
   if (aiChild) kids[5] = {g:aiChild, label:aiName(), by:'ai'};
-  S.litter = kids; S.litterId++;
+  S.litter = kids; newLitter();
 }
 function syncLitter(){
+  endPreview();
   $('litterGen').textContent = `generation ${S.gen + 1}`;
   S.litter.forEach((k, i) => {
     const p = pups[i];
@@ -301,9 +400,16 @@ function syncLitter(){
     p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}, ${E.tag(k.g)}${k.label && k.by !== 'ai' ? `, ${k.label}` : ''}${k.aiPick ? `, ${k.pickBy || 'AI'}’s favourite` : ''}${k.by === 'ai' ? `, written by ${k.label}` : ''}`);
   });
 }
-function syncParent(){
+/* The plate names the parent, or the offspring being previewed. */
+function syncPlate(){
+  $('stage').classList.toggle('previewing', !!preview);
+  if (preview){ $('plateId').textContent = `Offspring ${preview.i + 1} · ${E.tag(preview.g)}`; $('plateKind').textContent = kindOf(preview.g); return; }
   $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
   $('plateKind').textContent = kindOf(S.parent);
+  syncLineageCur();
+}
+function syncParent(){
+  syncPlate();
   sliderEls.forEach((s, i) => { if (s) s.sync(S.parent.v[i]); });
   syncRelevance();
   $('strip').style.background = E.palCSS(S.parent.v);
@@ -347,8 +453,7 @@ function editScalar(i, v){
   focusDirty = true;
   if (sliderEls[i].out) sliderEls[i].out.textContent = E.fmtScalar(i, v);
   if (i === 2 || i === 24) syncRelevance();
-  $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
-  $('plateKind').textContent = kindOf(S.parent);
+  syncPlate();
   $('strip').style.background = E.palCSS(S.parent.v);
   $('code').value = E.encode(S.parent);
   syncKeep();
@@ -1231,6 +1336,21 @@ let resizeT = 0;
 new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(() => { setScale(scale); focusDirty = true; measureThumbs(); }, 80); }).observe($('stage'));
 function onTheme(){ BG = readBg(); syncRendererBg(); focusDirty = true; queueLitter(); queueShelf(); }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
+/* Theme: System follows the OS; Light and Dark set data-theme on <html> (the head script applies it before first paint). */
+(() => {
+  let t = 'system';
+  try { t = localStorage.getItem('nsb.theme') || 'system'; } catch (e) {}
+  const radios = [...document.querySelectorAll('#theme input')];
+  radios.forEach(r => {
+    r.checked = r.value === t;
+    r.addEventListener('change', () => {
+      if (!r.checked) return;
+      if (r.value === 'system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', r.value);
+      try { localStorage.setItem('nsb.theme', r.value); } catch (e) {}
+    });
+  });
+})();
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 const saved = store.load();
 let savedLitter = null;
@@ -1267,8 +1387,9 @@ initAiBreeder();
 setToggle('spin', S.spin);
 BG = readBg();
 syncRendererBg();
-if (savedLitter){ S.litter = savedLitter; S.litterId++; } else breed();
+if (savedLitter){ S.litter = savedLitter; newLitter(); } else breed();
 syncParent(); syncLitter(); renderLog(); curStatus(); store.save();
+booted = true;
 if (sharedLoaded) afterFirstDraw = () => undoToast(`Loaded shared specimen ${E.tag(S.parent)}. Undo returns to yours.`);
 const footerCopy = $('footerCopy');
 if (footerCopy) footerCopy.textContent = `© ${new Date().getFullYear()} carlok`;

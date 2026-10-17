@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <title>Consculpta</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem('nsb.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <link rel="stylesheet" href="third_party/fonts/fonts.css">
 <link rel="stylesheet" href="legacy/styles.css">
 </head>
@@ -37,6 +38,7 @@
         <div class="stage-msg" id="stageMsg" hidden></div>
       </div>
       <div class="readout mono"><span id="readRes">—</span><span id="readFrame">—</span></div>
+      <nav class="lineage" id="lineage" aria-label="Recent parents" hidden><ol id="lineageList"></ol></nav>
       <div class="actions">
         <button class="btn btn-primary" id="keep" type="button">Keep</button>
         <button class="btn" id="undo" type="button" aria-keyshortcuts="Z Meta+Z Control+Z">Undo</button>
@@ -55,11 +57,11 @@
       <div class="sec-head">
         <h2>Litter</h2>
         <span class="mono muted grow" id="litterGen">generation 2</span>
-        <label class="rate" for="rate">Mutation <input type="range" id="rate" min="5" max="100" value="35"><span class="mono" id="rateOut">35%</span></label>
+        <label class="rate" for="rate" title="Changing the mutation rate rerolls the litter.">Mutation <input type="range" id="rate" min="5" max="100" value="35" aria-describedby="rateWhy"><span class="mono" id="rateOut">35%</span><span class="sr-only" id="rateWhy">Changing it rerolls the litter.</span></label>
         <button class="btn" id="reroll" type="button">New litter</button>
       </div>
       <div class="turn" id="turn" hidden><span id="turnText"></span><button class="btn" id="turnCancel" type="button">Choose myself</button></div>
-      <div class="litter" id="litter"></div>
+      <div class="litter" id="litter" role="group" aria-label="Offspring"></div>
       </div>
 
 
@@ -84,7 +86,7 @@
             <div class="group-head"><h3>Colour formula</h3></div>
             <textarea class="formula short" id="cText" spellcheck="false" autocomplete="off" aria-label="Colour formula" aria-describedby="fErr"></textarea>
             <div class="apply-row"><button class="btn btn-primary" id="fApply" type="button" aria-keyshortcuts="Meta+Enter Control+Enter">Apply formulas</button><span class="mono muted kbd-hint">⌘/Ctrl + Enter</span><span class="warn" id="fErr" role="status"></span></div>
-            <details class="ref"><summary>Formula language</summary><pre id="langRef"></pre></details>
+            <details class="ref"><summary>Formula language</summary><div class="lang-ref" id="langRef" role="region" aria-label="Formula language" tabindex="0"></div></details>
           </div>
           <div class="group">
             <div class="group-head"><h3>Surface</h3></div>
@@ -92,6 +94,7 @@
           </div>
           <div class="group">
             <div class="group-head"><h3>Colour <span class="formula">a + b·cos 2π(c·t + d)</span></h3></div>
+            <div class="presets" id="presets" role="group" aria-label="Palette presets"></div>
             <div class="strip" id="strip" aria-hidden="true"></div>
             <div class="palgrid" id="palgrid"></div>
             <div class="sliders" id="gColor"></div>
@@ -182,6 +185,11 @@
       <span class="mono" id="footerCopy"></span>
       <span class="mono muted gpu" id="gpu">WebGL 2</span>
       <button class="linkish" id="keysOpen" type="button" aria-keyshortcuts="Shift+Slash">Keyboard shortcuts</button>
+      <span class="seg theme" id="theme" role="radiogroup" aria-label="Theme">
+        <label><input type="radio" name="theme" value="system" checked><span>System</span></label>
+        <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+        <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+      </span>
     </p>
   </footer>
 </div>
@@ -247,6 +255,7 @@
   <p class="muted">On the focused stage: arrow keys orbit, <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>0</kbd> resets the camera.</p>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="sr-only" id="announce" role="status" aria-live="polite"></div>
 
 
 <script src="legacy/engine.bundle.js"></script>

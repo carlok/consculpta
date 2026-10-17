@@ -308,4 +308,69 @@ test.describe('Consculpta legacy site', () => {
     await shape.press('Control+Enter');
     await expect(page.locator('#toast')).toContainText('Formula applied.');
   });
+
+  test('lineage strip brings back an earlier parent as a new step', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(page.locator('#lineage')).toBeHidden();
+    await expect(page.locator('#litter')).toHaveAttribute('role', 'group');
+
+    await page.keyboard.press('2');
+    await expect(page.locator('#plateId')).toHaveText(/^G2 · /);
+    const g2 = await page.locator('#plateId').textContent();
+    const strip = page.locator('#lineage');
+    await expect(strip).toBeVisible();
+    await expect(strip.locator('.lin-cur')).toHaveText(g2);
+
+    await strip.getByRole('button', { name: 'Go back to G1 · 74C8' }).click();
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(page.locator('#toast')).toContainText('Back to G1 · 74C8.');
+    await expect(strip.getByRole('button')).toHaveCount(2);
+
+    await page.locator('#toast .toast-act').click();
+    await expect(page.locator('#plateId')).toHaveText(g2);
+  });
+
+  test('palette presets rewrite the colour genes with Undo', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.locator('#genome > summary').click();
+    const code = page.locator('#code');
+    const before = await code.inputValue();
+    const presets = page.locator('#presets button');
+    expect(await presets.count()).toBeGreaterThanOrEqual(6);
+
+    await page.getByRole('button', { name: 'Ember palette' }).click();
+    await expect(page.locator('#toast')).toContainText('Ember palette.');
+    await expect(code).not.toHaveValue(before);
+    // Ember: frequency (c) 1, 0.7, 0.4 in the 0.3–1.7 gene range.
+    await expect(page.locator('#gene-13')).toHaveValue('500');
+    await expect(page.locator('#gene-15')).toHaveValue('71');
+
+    await page.locator('#toast .toast-act').click();
+    await expect(code).toHaveValue(before);
+  });
+
+  test('theme toggle sets data-theme and is remembered', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const html = page.locator('html');
+    const theme = page.getByRole('radiogroup', { name: 'Theme' });
+    await expect(theme.getByRole('radio', { name: 'System' })).toBeChecked();
+    await expect(html).not.toHaveAttribute('data-theme', /.+/);
+
+    await theme.getByRole('radio', { name: 'Dark' }).check();
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    await page.reload();
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    await expect(theme.getByRole('radio', { name: 'Dark' })).toBeChecked();
+
+    await theme.getByRole('radio', { name: 'Light' }).check();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+    await theme.getByRole('radio', { name: 'System' }).check();
+    await expect(html).not.toHaveAttribute('data-theme', /.+/);
+    expect(await page.evaluate(() => localStorage.getItem('nsb.theme'))).toBe('system');
+  });
 });
