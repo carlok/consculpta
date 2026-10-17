@@ -1322,7 +1322,7 @@ const f4 = x => (Math.round(x*10000)/10000).toFixed(4);
 function exportGLSL(){
   const g = S.parent, U = uniformsOf(g);
   const rows = []; for (let i = 0; i < 8; i++) rows.push(`  vec4(${[0, 1, 2, 3].map(j => f4(U[i*4 + j])).join(', ')})`);
-  return `// Noise Sculpture Breeder · specimen G${S.gen} · ${E.tag(g)} (${kindOf(g)})
+  return `// Consculpta · specimen G${S.gen} · ${E.tag(g)} (${kindOf(g)})
 // Shape:  ${E.print(g.t)}
 // Colour: ${E.print(g.c)}
 // Paste into a new shader on shadertoy.com (Image tab). Drag to orbit.

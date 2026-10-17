@@ -67,3 +67,9 @@ jobs:
 
       - name: Unit tests
         run: npm run test
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium
+
+      - name: End-to-end smoke tests
+        run: npm run e2e
