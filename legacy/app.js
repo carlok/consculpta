@@ -723,7 +723,7 @@ const EFFORTS = {
 };
 const MODELS = {anthropic:['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'], openai:[]};
 const MODEL_NAMES = {'claude-haiku-5-5':'Haiku 5.5', 'claude-sonnet-5-5':'Sonnet 5.5', 'claude-opus-5-5':'Opus 5.5', 'claude-fable-5-1':'Fable 5.1'};
-const AI = {on:true, provider:'anthropic', image:true, remember:false,
+const AI = {on:false, provider:'anthropic', image:true, remember:false,
   cfg:{anthropic:{model:'claude-sonnet-5-5', effort:'', endpoint:'https://api.anthropic.com', key:''},
        openai:{model:'', effort:'', endpoint:'https://api.openai.com/v1', key:''}}};
 const cfg = () => AI.cfg[AI.provider];
@@ -733,7 +733,8 @@ function aiLoad(){
   try {
     const a = JSON.parse(localStorage.getItem('nsb.ai') || 'null');
     if (a){
-      AI.on = a.on !== false; AI.image = a.image !== false;
+      if (typeof a.on === 'boolean') AI.on = a.on;
+      AI.image = a.image !== false;
       if (PROVIDERS[a.provider]) AI.provider = a.provider;
       else if (a.provider === 'claude') AI.provider = 'anthropic';
       for (const k in AI.cfg) if (a.cfg && a.cfg[k]) for (const f of ['model', 'effort', 'endpoint']) if (typeof a.cfg[k][f] === 'string' && f in AI.cfg[k]) AI.cfg[k][f] = a.cfg[k][f];
@@ -1381,6 +1382,7 @@ if (saved){
   }
 }
 $('curEvery').value = String(CUR.every); $('curRole').value = CUR.role;
+initAiBreeder();
 setToggle('spin', S.spin);
 BG = readBg();
 breed(); syncParent(); syncLitter(); renderLog(); curStatus();
@@ -1396,5 +1398,6 @@ if (!glInit()){
   setScale(scale); measureThumbs(); queueLitter();
   requestAnimationFrame(frame);
 }
-initAiBreeder();
+const footerCopy = $('footerCopy');
+if (footerCopy) footerCopy.textContent = `© ${new Date().getFullYear()} carlok`;
 })();

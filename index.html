@@ -62,9 +62,9 @@
       <section class="curator" aria-label="AI breeder">
         <div class="sec-head">
           <h2 id="curTitle">AI breeder</h2><span class="mono muted grow" id="curStatus">not set up</span>
-          <button class="btn" id="curOn" type="button" aria-pressed="true" aria-label="AI breeder">On</button>
+          <button class="btn" id="curOn" type="button" aria-pressed="false" aria-label="AI breeder">Off</button>
         </div>
-        <p class="empty" id="curOffNote" hidden>Off. Litters come only from mutation and your picks. Turn it on to let a configured model rank litters and add offspring of its own.</p>
+        <p class="empty" id="curOffNote">Off. Litters come only from mutation and your picks. Turn it on to let a configured model rank litters and add offspring of its own.</p>
         <div class="cur-body" id="curBody">
           <div class="cur-row">
             <label class="field" for="curEvery">Turn every
@@ -168,8 +168,14 @@
   </main>
 
   <footer>
-    <p>Each sculpture is the region where a formula over 3D simplex noise rises above an iso level inside a sphere, cube or drum. Formulas are trees of noise, trigonometry and space transforms (twist, mirror, rotate, warp). Every offspring changes its parent's tree by tweaking a number, swapping a function, grafting a new branch, wrapping a node or cutting one out. About one offspring in twelve switches to strands: thin filaments traced where the formula's surface crosses a rotated copy of itself. The page evaluates each formula on 520 sample points to normalise it, estimate a safe raymarching step and throw out empty or solid results before anything is compiled.</p>
-    <p>Simplex noise by Ian McEwan, Ashima Arts and Stefan Gustavson (MIT). Colours use Inigo Quilez's cosine palettes. Shader code exports a standalone Shadertoy shader with the formula compiled in.</p>
+    <p>Each sculpture is the region where a formula over <a href="https://en.wikipedia.org/wiki/Simplex_noise" target="_blank" rel="noopener noreferrer">3D simplex noise</a> rises above an <a href="https://en.wikipedia.org/wiki/Isosurface" target="_blank" rel="noopener noreferrer">iso level</a> inside a sphere, cube or drum. Formulas are trees of noise, trigonometry and space transforms (twist, mirror, rotate, warp). Every offspring changes its parent's tree by tweaking a number, swapping a function, grafting a new branch, wrapping a node or cutting one out. About one offspring in twelve switches to strands: thin filaments traced where the formula's surface crosses a rotated copy of itself. The page evaluates each formula on 520 sample points to normalise it, estimate a safe <a href="https://iquilezles.org/articles/raymarchingdf/" target="_blank" rel="noopener noreferrer">raymarching</a> step and throw out empty or solid results before anything is compiled.</p>
+    <p><a href="https://github.com/stegu/webgl-noise" target="_blank" rel="noopener noreferrer">Simplex noise</a> by Ian McEwan, Ashima Arts and Stefan Gustavson (<a href="https://opensource.org/license/MIT" target="_blank" rel="noopener noreferrer">MIT</a>). Colours use Inigo Quilez's <a href="https://iquilezles.org/articles/palettes/" target="_blank" rel="noopener noreferrer">cosine palettes</a>. Shader code exports a standalone <a href="https://www.shadertoy.com/" target="_blank" rel="noopener noreferrer">Shadertoy</a> shader with the formula compiled in.</p>
+    <p class="footer-meta">
+      <a class="footer-repo" href="https://github.com/carlok/consculpta" target="_blank" rel="noopener noreferrer" aria-label="Consculpta on GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      </a>
+      <span class="mono" id="footerCopy"></span>
+    </p>
   </footer>
 </div>
 
@@ -208,7 +214,7 @@
       </div>
     </div>
     <div id="glslView" style="display:grid;gap:12px" hidden>
-      <p class="muted">Paste into a new shader on shadertoy.com (Image tab). Drag in the preview to orbit. Set MORPH above zero to make the shape flow.</p>
+      <p class="muted">Paste into a new shader on <a href="https://www.shadertoy.com/" target="_blank" rel="noopener noreferrer">Shadertoy</a> (Image tab). Drag in the preview to orbit. Set MORPH above zero to make the shape flow.</p>
       <textarea id="glslText" readonly spellcheck="false" aria-label="Shader source"></textarea>
       <div class="sheet-actions">
         <button class="btn btn-primary" id="glslCopy" type="button">Copy shader</button>
