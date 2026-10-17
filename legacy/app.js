@@ -349,8 +349,8 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = matchMedia('(pointer: coarse)').matches;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 const THUMB_CAM = [0.7, 0.38, 3.35];
-const DEFAULT_CAM = {yaw:4.4434, pitch:0.3615, dist:3.55};
-const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
+const DEFAULT_CAM = E.DEFAULT_CAMERA;
+const SURFACE = [24, 2, 1, 3, 0, 6, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
 
 const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[], future:[],
            spin:!reduceMotion, morph:false, morphT:0, yaw:DEFAULT_CAM.yaw, pitch:DEFAULT_CAM.pitch, dist:DEFAULT_CAM.dist, distT:DEFAULT_CAM.dist};
@@ -377,14 +377,56 @@ for (let i = 0; i < 6; i++){
   $('litter').appendChild(b);
   pups.push({btn:b, cv:b.querySelector('canvas'), id:b.querySelector('.pup-id'), op:b.querySelector('.pup-op'), badge:b.querySelector('.badge')});
 }
+/* Gene controls. Each entry has sync(v) to show a gene value; discrete genes get radio segments, the rest sliders. */
 const sliderEls = [];
 function sliderRow(i){
+  if (E.DISCRETE.has(i)) return segRow(i);
   const row = document.createElement('div'); row.className = 'row';
-  row.innerHTML = `<label for="gene-${i}">${E.SCALARS[i].n}</label><input type="range" id="gene-${i}" min="0" max="1000" step="1"><output for="gene-${i}"></output>`;
+  row.innerHTML = `<label for="gene-${i}">${E.SCALARS[i].n}</label><input type="range" id="gene-${i}" min="0" max="1000" step="1" aria-describedby="gene-${i}-why"><output for="gene-${i}"></output><span class="sr-only" id="gene-${i}-why"></span>`;
   const input = row.querySelector('input'), out = row.querySelector('output');
   input.addEventListener('input', () => editScalar(i, input.value/1000));
-  sliderEls[i] = {input, out};
+  sliderEls[i] = {row, input, out, sync:v => { input.value = Math.round(v*1000); out.textContent = E.fmtScalar(i, v); }};
   return row;
+}
+/* Discrete genes: option labels, the gene value written for option k (bucket centre), and the option gene value g falls in. */
+function discrete(i){
+  const d = E.SCALARS[i];
+  if (i === 24) return {labels:d.names, toV:k => k ? E.STRANDS_ON : E.STRANDS_OFF, idx:g => d.f(g)};
+  const labels = d.names || [2, 3, 4, 5, 6, 7].map(String), n = labels.length, base = d.names ? 0 : 2;
+  return {labels, toV:k => (k + 0.5)/n, idx:g => d.f(g) - base};
+}
+function segRow(i){
+  const {labels, toV, idx} = discrete(i);
+  const row = document.createElement('div'); row.className = 'row seg-row';
+  row.innerHTML = `<span id="gene-${i}-l">${E.SCALARS[i].n}</span><div class="seg" role="radiogroup" id="gene-${i}" aria-labelledby="gene-${i}-l" aria-describedby="gene-${i}-why"></div><span class="sr-only" id="gene-${i}-why"></span>`;
+  const seg = row.querySelector('.seg');
+  const radios = labels.map((name, k) => {
+    const l = document.createElement('label');
+    l.innerHTML = `<input type="radio" name="gene-${i}" value="${k}"><span></span>`;
+    l.querySelector('span').textContent = name;
+    const r = l.querySelector('input');
+    r.addEventListener('change', () => { if (r.checked) editScalar(i, toV(k)); });
+    seg.appendChild(l);
+    return r;
+  });
+  sliderEls[i] = {row, input:seg, out:null, sync:g => { const k = idx(g); radios.forEach((r, j) => { r.checked = j === k; }); }};
+  return row;
+}
+/* '' when gene i shapes the render for genome values v, otherwise why it does not. */
+function geneWhy(v, i){
+  const strands = E.val(v, 24) === 1, mode = E.val(v, 2);
+  if (i === 2 && strands) return 'Strands replace the surface.';
+  if (i === 1 && !strands && mode === 0) return 'Solid surfaces have no thickness.';
+  if (i === 3 && (strands || mode !== 2)) return 'Only used by contour surfaces.';
+  return '';
+}
+function syncRelevance(){
+  [1, 2, 3].forEach(i => {
+    const why = geneWhy(S.parent.v, i), el = sliderEls[i];
+    el.row.classList.toggle('idle', !!why);
+    el.row.title = why;
+    $(`gene-${i}-why`).textContent = why;
+  });
 }
 SURFACE.forEach(i => $('gSurface').appendChild(sliderRow(i)));
 COLOR.forEach(i => $('gColor').appendChild(sliderRow(i)));
@@ -399,7 +441,7 @@ LIGHT.forEach(i => $('gLight').appendChild(sliderRow(i)));
       input.type = 'range'; input.min = '0'; input.max = '1000'; input.step = '1'; input.id = 'gene-' + i; input.className = ch;
       input.setAttribute('aria-label', `Palette ${k} (${what}), ${['red','green','blue'][j]}`);
       input.addEventListener('input', () => editScalar(i, input.value/1000));
-      pg.appendChild(input); sliderEls[i] = {input, out:null};
+      pg.appendChild(input); sliderEls[i] = {input, out:null, sync:v => { input.value = Math.round(v*1000); }};
     });
   });
 })();
@@ -562,13 +604,14 @@ function syncLitter(){
 function syncParent(){
   $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
   $('plateKind').textContent = kindOf(S.parent);
-  sliderEls.forEach((s, i) => { if (!s) return; s.input.value = Math.round(S.parent.v[i]*1000); if (s.out) s.out.textContent = E.fmtScalar(i, S.parent.v[i]); });
+  sliderEls.forEach((s, i) => { if (s) s.sync(S.parent.v[i]); });
+  syncRelevance();
   $('strip').style.background = E.palCSS(S.parent.v);
   if (document.activeElement !== $('fText')) $('fText').value = E.pretty(S.parent.t);
   if (document.activeElement !== $('cText')) $('cText').value = E.pretty(S.parent.c);
   $('fStats').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise`;
   $('genomeSum').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise · ${E.fmtScalar(4, S.parent.v[4])}`;
-  $('fErr').textContent = '';
+  if (document.activeElement !== $('fText') && document.activeElement !== $('cText')) markFormula('', null);
   if (document.activeElement !== $('code')) $('code').value = E.encode(S.parent);
   syncHistoryButtons();
   syncKeep();
@@ -603,6 +646,7 @@ function editScalar(i, v){
   S.parent.v[i] = v;
   focusDirty = true;
   if (sliderEls[i].out) sliderEls[i].out.textContent = E.fmtScalar(i, v);
+  if (i === 2 || i === 24) syncRelevance();
   $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
   $('plateKind').textContent = kindOf(S.parent);
   $('strip').style.background = E.palCSS(S.parent.v);
@@ -611,10 +655,29 @@ function editScalar(i, v){
   clearTimeout(editTimer);
   editTimer = setTimeout(() => { editing = false; breed(); syncLitter(); queueLitter(); store.save(); }, 650);
 }
-$('fApply').addEventListener('click', () => {
+/* Shows a formula problem under the editors and flags the textarea it belongs to (null clears both). */
+function markFormula(msg, which){
+  $('fErr').textContent = msg;
+  $('fText').setAttribute('aria-invalid', which === 'fText' ? 'true' : 'false');
+  $('cText').setAttribute('aria-invalid', which === 'cText' ? 'true' : 'false');
+}
+/* Parse both formulas; returns {t, c} or marks the first error and returns null. */
+function parseFormulas(){
   let t, c;
-  try { t = E.parse($('fText').value); } catch (e) { $('fErr').textContent = 'Shape: ' + e.message; return; }
-  try { c = E.parse($('cText').value); } catch (e) { $('fErr').textContent = 'Colour: ' + e.message; return; }
+  try { t = E.parse($('fText').value); } catch (e) { markFormula('Shape: ' + e.message, 'fText'); return null; }
+  try { c = E.parse($('cText').value); } catch (e) { markFormula('Colour: ' + e.message, 'cText'); return null; }
+  markFormula('', null);
+  return {t, c};
+}
+let checkTimer = 0;
+['fText', 'cText'].forEach(id => {
+  $(id).addEventListener('input', () => { clearTimeout(checkTimer); checkTimer = setTimeout(parseFormulas, 350); });
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); $('fApply').click(); } });
+});
+$('fApply').addEventListener('click', () => {
+  clearTimeout(checkTimer);
+  const parsed = parseFormulas(); if (!parsed) return;
+  const {t, c} = parsed;
   const g = {t, c, v:S.parent.v.slice()};
   if (E.size(t) > 34 || E.cost(t) > 9){ $('fErr').textContent = `Too heavy to render live: ${E.size(t)} nodes, ${E.cost(t)} noise (limit 34 and 9).`; return; }
   const st = E.stats(g);

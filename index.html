@@ -136,10 +136,10 @@
           </div>
           <div class="group">
             <div class="group-head"><h3>Shape formula</h3><span class="mono muted" id="fStats"></span></div>
-            <textarea class="formula" id="fText" spellcheck="false" autocomplete="off" aria-label="Shape formula"></textarea>
+            <textarea class="formula" id="fText" spellcheck="false" autocomplete="off" aria-label="Shape formula" aria-describedby="fErr"></textarea>
             <div class="group-head"><h3>Colour formula</h3></div>
-            <textarea class="formula short" id="cText" spellcheck="false" autocomplete="off" aria-label="Colour formula"></textarea>
-            <div class="apply-row"><button class="btn btn-primary" id="fApply" type="button">Apply formulas</button><span class="warn" id="fErr" role="status"></span></div>
+            <textarea class="formula short" id="cText" spellcheck="false" autocomplete="off" aria-label="Colour formula" aria-describedby="fErr"></textarea>
+            <div class="apply-row"><button class="btn btn-primary" id="fApply" type="button" aria-keyshortcuts="Meta+Enter Control+Enter">Apply formulas</button><span class="mono muted kbd-hint">⌘/Ctrl + Enter</span><span class="warn" id="fErr" role="status"></span></div>
             <details class="ref"><summary>Formula language</summary><pre id="langRef"></pre></details>
           </div>
           <div class="group">

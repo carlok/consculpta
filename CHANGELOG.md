@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Keyboard shortcuts: `1`–`6` adopt, `N` new litter, `K` keep, `Z` / `⌘Z` undo, `⇧Z` / `⇧⌘Z` / `Ctrl+Y` redo, `R` random, `S` spin, `M` morph, `?` lists them (also via **Keyboard shortcuts** in the footer).
 - Adopting pulses the specimen plate and announces the new parent in the toast region.
 - **Keep** reads "Kept · K4" while the current parent is already on the shelf. A full shelf says which item it dropped, with Undo.
+- Genome editor: Strands, Surface, Contours and Block use segmented choices instead of continuous sliders. Thickness, Contours and Surface dim (with the reason in a tooltip and for screen readers) when the current surface does not use them; Surface genes are reordered so related ones sit together.
+- Formula editors flag parse errors as you type (`aria-invalid`, message in the status line) and apply with `⌘/Ctrl+Enter`.
+- Engine exports `DISCRETE`, `STRANDS_ON` and `STRANDS_OFF`.
 - README: About (with footer links), How to use, Privacy and API keys, licence footer.
 
 ### Fixed
@@ -25,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Snapshot and shader downloads are named `consculpta-…` instead of `noise-sculpture-…`.
 - Genome summary shows the parent's node count, noise cost and block instead of a fixed "formula · 25 genes".
 - Stage zoom controls move to the top edge on narrow stages so they no longer collide with the specimen plate.
+- Side by side, the stage column now stays in view at laptop heights (sticky from 600 px tall instead of 860 px); the stage shrinks to fit the window height.
 - Lede capitalisation; gene label "Colour spread" matches the British spelling used elsewhere.
 - E2E first-visit test waits for full legacy app bootstrap (footer + default specimen) so slow CI WebGL init does not hit the 60s test timeout.
 

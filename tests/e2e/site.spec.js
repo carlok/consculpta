@@ -146,4 +146,42 @@ test.describe('Consculpta legacy site', () => {
     await page.keyboard.press('Escape');
     await expect(page.locator('#keys')).toBeHidden();
   });
+
+  test('discrete genes use segments and dim genes that do not apply', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.locator('#genome > summary').click();
+    const surface = page.locator('#gene-2');
+    await expect(surface.getByRole('radio')).toHaveCount(3);
+    // Default specimen is a solid sphere: segments reflect the current genes on load.
+    await expect(surface.getByRole('radio', { name: 'solid' })).toBeChecked();
+    await expect(page.locator('#gene-4').getByRole('radio', { name: 'sphere' })).toBeChecked();
+    const thickness = page.locator('#gene-1').locator('xpath=..');
+
+    await surface.getByRole('radio', { name: 'solid' }).check();
+    await expect(page.locator('#plateKind')).toContainText('solid');
+    await expect(thickness).toHaveClass(/idle/);
+
+    await surface.getByRole('radio', { name: 'shell' }).check();
+    await expect(page.locator('#plateKind')).toContainText('shell');
+    await expect(thickness).not.toHaveClass(/idle/);
+    await expect(page.locator('#gene-3').locator('xpath=..')).toHaveClass(/idle/);
+  });
+
+  test('formula editor flags parse errors and applies with Ctrl+Enter', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.locator('#genome > summary').click();
+    const shape = page.locator('#fText');
+    const original = await shape.inputValue();
+
+    await shape.fill('add(');
+    await expect(page.locator('#fErr')).toContainText('Shape:');
+    await expect(shape).toHaveAttribute('aria-invalid', 'true');
+
+    await shape.fill(original);
+    await expect(shape).toHaveAttribute('aria-invalid', 'false');
+    await shape.press('Control+Enter');
+    await expect(page.locator('#toast')).toContainText('Formula applied.');
+  });
 });
