@@ -17,5 +17,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Phase 1 scaffold:** Biome, TypeScript `checkJs`, Vite dev shell, Makefile, `ci.yml`, Dependabot; `npm run check` on Pages.
 - **Language policy:** provider-neutral AI breeder copy; removed `BRIEF.md` and the duplicate root prototype HTML; stripped host-artifact code paths from `legacy/app.js`.
