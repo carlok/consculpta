@@ -21,7 +21,7 @@ Open the [live site](https://carlok.github.io/consculpta/) in a WebGL 2 browser.
 2. **Kept specimens** — Press **Keep** to pin the current parent on the shelf. When the shelf is non-empty, some offspring crossbreed with a kept formula.
 3. **Genome** — Open the genome panel to edit the formula, scalars, and palette, or paste a genome code and **Load**.
 4. **Export** — **Shader code** opens a sheet with a Shadertoy-ready GLSL export; **Snapshot** renders a high-resolution PNG from the current camera.
-5. **Large view** — On wide screens, **Large view** gives the main stage more room. On a first visit with no saved preference, it is **off** and the litter sits beside the stage. Your choice is stored in this browser (`localStorage` key `nsb.big`).
+5. **Large view** — On wide screens, **Large view** toggles a wider main stage versus giving the litter grid more room in the layout. Your choice is stored in this browser (`localStorage` key `nsb.big`).
 6. **AI breeder** (optional) — Off by default. Turn it on to let a configured model rank litters or suggest offspring. You choose the provider (Anthropic API or an OpenAI-compatible endpoint), model, and API key in the settings panel.
 
 ## Privacy and API keys
