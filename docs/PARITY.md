@@ -2,9 +2,7 @@
 
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-This list mirrors [BRIEF.md §1](../BRIEF.md). Check items only when the refactored site matches the prototype behaviour (phase 0 pins behaviour with characterization tests against `legacy/`).
-
-Maintainer decisions that **narrow** the prototype are marked **removed** below (see [DECISIONS.md](DECISIONS.md)).
+This list tracks behaviour against the original single-file prototype (now under `legacy/`). Check items when the refactored site matches that behaviour.
 
 ## Sculptures and formulas
 
@@ -28,11 +26,11 @@ Maintainer decisions that **narrow** the prototype are marked **removed** below 
 
 ## AI breeder
 
-- [ ] Optional second breeder; contact sheet JPEG (numbered 1–6), formulas, human picks, carried taste notes.
+- [ ] Optional AI breeder; contact sheet JPEG (numbered 1–6), formulas, human picks, carried taste notes.
 - [ ] JSON reply: favourite, ranking, critique, direction, offspring formula, optional palette, strands flag.
 - [ ] Roles: add offspring to litter or choose next parent after 5s countdown (cancellable).
-- [ ] Providers: Anthropic Messages API and OpenAI-compatible `/chat/completions` (user-configured endpoints from the browser).
-- [x] **Removed:** Claude in claude.ai artifact provider (`window.claude.use('sample')`) — not shipped; UI will hide/remove this option in a later phase. Legacy `noise-sculpture-breeder.html` / `legacy/app.js` may still contain dead code until then.
+- [ ] Providers: Anthropic Messages API and OpenAI-compatible `/chat/completions` (browser calls user-configured endpoints).
+- [x] **Removed:** Host-embedded artifact runtime provider — not shipped.
 - [ ] Notes log with 12s auto-close and Show/Hide toggle.
 
 ## Views and export
@@ -47,7 +45,7 @@ Maintainer decisions that **narrow** the prototype are marked **removed** below 
 
 - [ ] Light/dark themes via CSS tokens; Gloock, Schibsted Grotesk, Martian Mono; specimen-bench layout.
 
-## Phase 0 characterization coverage (tests)
+## Characterization tests (phase 0+)
 
 | Area | Status |
 |------|--------|
@@ -56,6 +54,3 @@ Maintainer decisions that **narrow** the prototype are marked **removed** below 
 | Noise at fixed points | Covered |
 | Viability for fixed formulas | Covered |
 | Provider request bodies (Anthropic, OpenAI-compatible) | Covered in `tests/legacy/provider-requests.test.js` |
-| Claude artifact provider | **Removed** — out of scope; not characterized in phase 0 |
-
-Remaining rows in this table are unchecked until later phases add rendering, UI, and e2e parity.

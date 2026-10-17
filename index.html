@@ -5,7 +5,6 @@
 <meta charset="utf-8">
 <title>Noise Sculpture Breeder</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="third_party/fonts/fonts.css">
 <link rel="stylesheet" href="legacy/styles.css">
 </head>
@@ -14,7 +13,7 @@
   <header class="top">
     <div>
       <h1>Noise Sculpture Breeder</h1>
-      <p class="lede">Sculptures grown from evolving formulas over 3D simplex noise, raymarched on your GPU. Each offspring rewrites its parent's formula. Pick the ones you like; Claude can look at every few litters and breed alongside you.</p>
+      <p class="lede">Sculptures grown from evolving formulas over 3D simplex noise, raymarched on your GPU. Each offspring rewrites its parent's formula. Pick the ones you like; Turn on the AI breeder to have a configured model rank litters and breed alongside you.</p>
     </div>
     <p class="gpu mono" id="gpu">WebGL 2</p>
   </header>
@@ -62,10 +61,10 @@
 
       <section class="curator" aria-label="AI breeder">
         <div class="sec-head">
-          <h2 id="curTitle">Claude's eye</h2><span class="mono muted grow" id="curStatus">connecting…</span>
+          <h2 id="curTitle">AI breeder</h2><span class="mono muted grow" id="curStatus">not set up</span>
           <button class="btn" id="curOn" type="button" aria-pressed="true" aria-label="AI breeder">On</button>
         </div>
-        <p class="empty" id="curOffNote" hidden>Off. Litters come only from mutation and your picks. Turn it on to let Claude or another model rank litters and add offspring of its own.</p>
+        <p class="empty" id="curOffNote" hidden>Off. Litters come only from mutation and your picks. Turn it on to let a configured model rank litters and add offspring of its own.</p>
         <div class="cur-body" id="curBody">
           <div class="cur-row">
             <label class="field" for="curEvery">Turn every
@@ -82,7 +81,7 @@
                 <option value="turns">chooses the next parent</option>
               </select>
             </label>
-            <button class="btn btn-claude" id="curAsk" type="button">Ask Claude now</button>
+            <button class="btn btn-ai-accent" id="curAsk" type="button">Ask model now</button>
             <button class="btn" id="curStop" type="button" hidden>Stop</button>
           </div>
           <details class="cur-set" id="curSet">
@@ -90,21 +89,11 @@
             <div class="set-grid">
               <label class="field" for="aiProvider">Provider
                 <select id="aiProvider">
-                  <option value="claude">Claude in claude.ai</option>
-                  <option value="anthropic">Anthropic API</option>
+<option value="anthropic">Anthropic API</option>
                   <option value="openai">OpenAI-compatible endpoint</option>
                 </select>
               </label>
-              <label class="field" for="aiModelSel" id="aiModelSelWrap">Model
-                <select id="aiModelSel">
-                  <option value="">Default</option>
-                  <option value="claude-haiku-5-5">Haiku 5.5</option>
-                  <option value="claude-sonnet-5-5">Sonnet 5.5</option>
-                  <option value="claude-opus-5-5">Opus 5.5</option>
-                  <option value="claude-fable-5-1">Fable 5.1</option>
-                </select>
-              </label>
-              <label class="field" for="aiModel" id="aiModelWrap">Model
+<label class="field" for="aiModel" id="aiModelWrap">Model
                 <input class="tin" id="aiModel" type="text" list="aiModels" autocomplete="off" spellcheck="false" placeholder="model id">
               </label>
               <datalist id="aiModels"></datalist>
@@ -125,7 +114,7 @@
             <button class="btn" id="logToggle" type="button" aria-expanded="true" aria-controls="curLog">Hide notes</button>
           </div>
           <ol class="cur-log" id="curLog"></ol>
-          <p class="empty" id="curEmpty">On its turn the model looks at the litter as one picture, ranks the six, says in a line why its favourite works, and writes an offspring formula of its own. Its notes carry over from turn to turn, so it builds a consistent taste, and it is told which offspring you picked.</p>
+          <p class="empty" id="curEmpty">On its turn the configured model looks at the litter as one picture, ranks the six, says in a line why its favourite works, and writes an offspring formula of its own. Its notes carry over from turn to turn, so it builds a consistent taste, and it is told which offspring you picked.</p>
         </div>
       </section>
 

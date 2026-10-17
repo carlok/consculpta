@@ -353,7 +353,7 @@ const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23
 
 const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[],
            spin:!reduceMotion, morph:false, morphT:0, yaw:0.7, pitch:0.38, dist:3.55, distT:3.55};
-const CUR = {every:3, role:'advise', since:0, busy:null, notes:[], log:[], picks:[], sampleState:'pending', sample:null, images:false,
+const CUR = {every:3, role:'advise', since:0, busy:null, notes:[], log:[], picks:[], 
              agree:0, rounds:0, pendingAsk:false, countdown:null};
 let BG = [0.82, 0.85, 0.81];
 let focusDirty = true, scale = coarse ? 0.6 : 1, emaDt = 16, adaptN = 0, lastTs = 0;
@@ -371,7 +371,7 @@ const pups = [];
 for (let i = 0; i < 6; i++){
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'pup'; b.id = 'pup-' + i;
-  b.innerHTML = '<span class="pup-frame"><canvas width="240" height="240"></canvas><span class="badge" hidden>★ Claude</span></span><span class="pup-meta"><span class="pup-id"></span><span class="pup-op"></span></span>';
+  b.innerHTML = '<span class="pup-frame"><canvas width="240" height="240"></canvas><span class="badge" hidden>★ AI</span></span><span class="pup-meta"><span class="pup-id"></span><span class="pup-op"></span></span>';
   b.addEventListener('click', () => adopt(i, 'you'));
   $('litter').appendChild(b);
   pups.push({btn:b, cv:b.querySelector('canvas'), id:b.querySelector('.pup-id'), op:b.querySelector('.pup-op'), badge:b.querySelector('.badge')});
@@ -483,7 +483,7 @@ function frame(ts){
     }
     if (snap) stepSnapshot();
     else if (queue.length) processQueue();
-    if (CUR.pendingAsk && !CUR.busy && litterRendered()){ CUR.pendingAsk = false; askClaude(); }
+    if (CUR.pendingAsk && !CUR.busy && litterRendered()){ CUR.pendingAsk = false; askBreeder(); }
   }
   requestAnimationFrame(frame);
 }
@@ -494,7 +494,7 @@ function pushHistory(){
   S.history.push({parent:E.cloneG(S.parent), gen:S.gen, litter:S.litter.map(k => ({...k, g:E.cloneG(k.g)}))});
   if (S.history.length > 60) S.history.shift();
 }
-function breed(claudeChild){
+function breed(aiChild){
   cancelCountdown();
   const kids = [];
   const nCross = S.shelf.length ? 2 : 0;
@@ -508,7 +508,7 @@ function breed(claudeChild){
     const m = E.mutate(S.parent, S.mutation);
     kids.push({g:m.g, label:m.label});
   }
-  if (claudeChild) kids[5] = {g:claudeChild, label:aiName(), by:'claude'};
+  if (aiChild) kids[5] = {g:aiChild, label:aiName(), by:'ai'};
   S.litter = kids; S.litterId++;
 }
 function syncLitter(){
@@ -517,11 +517,11 @@ function syncLitter(){
     const p = pups[i];
     p.id.textContent = `${i + 1} · ${E.tag(k.g)}`;
     p.op.textContent = k.label || '';
-    p.op.className = 'pup-op' + (k.by === 'claude' ? ' by-claude' : '');
-    p.badge.hidden = !k.claudePick; p.badge.textContent = '★ ' + (k.pickBy || 'Claude');
-    p.btn.classList.toggle('picked', !!k.claudePick);
+    p.op.className = 'pup-op' + (k.by === 'ai' ? ' by-ai' : '');
+    p.badge.hidden = !k.aiPick; p.badge.textContent = '★ ' + (k.pickBy || 'AI');
+    p.btn.classList.toggle('picked', !!k.aiPick);
     p.btn.title = E.print(k.g.t);
-    p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}${k.claudePick ? `, ${k.pickBy || 'Claude'}’s favourite` : ''}${k.by === 'claude' ? `, written by ${k.label}` : ''}`);
+    p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}${k.aiPick ? `, ${k.pickBy || 'AI'}’s favourite` : ''}${k.by === 'ai' ? `, written by ${k.label}` : ''}`);
   });
 }
 function syncParent(){
@@ -537,18 +537,18 @@ function syncParent(){
   $('undo').disabled = S.history.length === 0;
 }
 function refreshAll(){ focusDirty = true; syncParent(); syncLitter(); queueLitter(); store.save(); }
-function adopt(i, by, claudeChild){
+function adopt(i, by, aiChild){
   const k = S.litter[i]; if (!k) return;
   cancelCountdown();
   if (by === 'you'){
     if (CUR.busy){ CUR.busy.abort(); }
-    if (AI.on && S.litter.some(x => x.claudePick)){ CUR.rounds++; if (k.claudePick) CUR.agree++; }
+    if (AI.on && S.litter.some(x => x.aiPick)){ CUR.rounds++; if (k.aiPick) CUR.agree++; }
     CUR.picks.push(E.print(k.g.t)); if (CUR.picks.length > 4) CUR.picks.shift();
     if (AI.on) CUR.since++;
   } else CUR.since = 0;
   pushHistory();
   S.parent = E.cloneG(k.g); S.gen += 1;
-  breed(claudeChild); refreshAll();
+  breed(aiChild); refreshAll();
   if (by === 'you' && CUR.every > 0 && CUR.since >= CUR.every && usable()) CUR.pendingAsk = true;
   curStatus();
 }
@@ -715,22 +715,19 @@ function setBig(on){
 $('bigView').addEventListener('click', () => setBig(!$('bench').classList.contains('big')));
 try { if (localStorage.getItem('nsb.big') === '0') setBig(false); } catch (e) {}
 
-/* ================= AI breeder: Claude in claude.ai, Anthropic API, or any OpenAI-compatible endpoint ================= */
-const INSIDE = !!(window.claude && typeof window.claude.use === 'function');
-const PROVIDERS = {claude:'Claude in claude.ai', anthropic:'Anthropic API', openai:'OpenAI-compatible'};
+/* ================= AI breeder: Anthropic API or OpenAI-compatible endpoint ================= */
+const PROVIDERS = {anthropic:'Anthropic API', openai:'OpenAI-compatible'};
 const EFFORTS = {
-  claude:[['', 'Default'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']],
   anthropic:[['', 'Default'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['xhigh', 'Extra high'], ['max', 'Max']],
   openai:[['', 'Default (not sent)'], ['minimal', 'Minimal'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['xhigh', 'Extra high']],
 };
 const MODELS = {anthropic:['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'], openai:[]};
 const MODEL_NAMES = {'claude-haiku-5-5':'Haiku 5.5', 'claude-sonnet-5-5':'Sonnet 5.5', 'claude-opus-5-5':'Opus 5.5', 'claude-fable-5-1':'Fable 5.1'};
-const TIER = {'claude-haiku-5-5':'quick', 'claude-sonnet-5-5':'default', 'claude-opus-5-5':'complex', 'claude-fable-5-1':'complex'};
-const AI = {on:true, provider:INSIDE ? 'claude' : 'anthropic', image:true, remember:false,
-  cfg:{claude:{model:'', effort:''}, anthropic:{model:'claude-sonnet-5-5', effort:'', endpoint:'https://api.anthropic.com', key:''},
+const AI = {on:true, provider:'anthropic', image:true, remember:false,
+  cfg:{anthropic:{model:'claude-sonnet-5-5', effort:'', endpoint:'https://api.anthropic.com', key:''},
        openai:{model:'', effort:'', endpoint:'https://api.openai.com/v1', key:''}}};
 const cfg = () => AI.cfg[AI.provider];
-const aiName = () => AI.provider === 'openai' ? 'AI' : 'Claude';
+const aiName = () => 'The model';
 const modelName = id => MODEL_NAMES[id] || id;
 function aiLoad(){
   try {
@@ -738,6 +735,7 @@ function aiLoad(){
     if (a){
       AI.on = a.on !== false; AI.image = a.image !== false;
       if (PROVIDERS[a.provider]) AI.provider = a.provider;
+      else if (a.provider === 'claude') AI.provider = 'anthropic';
       for (const k in AI.cfg) if (a.cfg && a.cfg[k]) for (const f of ['model', 'effort', 'endpoint']) if (typeof a.cfg[k][f] === 'string' && f in AI.cfg[k]) AI.cfg[k][f] = a.cfg[k][f];
     }
     const keys = JSON.parse(localStorage.getItem('nsb.keys') || 'null');
@@ -759,13 +757,6 @@ function aiSave(){
 function aiReason(){
   if (!AI.on) return 'off';
   const c = cfg();
-  if (AI.provider === 'claude'){
-    if (!INSIDE) return 'Claude in claude.ai works only when this page is open in claude.ai. Here, pick Anthropic API or an OpenAI-compatible endpoint.';
-    if (CUR.sampleState === 'pending') return 'connecting';
-    if (CUR.sampleState === 'none') return 'Claude isn’t available for this page in this view.';
-    return '';
-  }
-  if (INSIDE) return 'Inside claude.ai this page can’t reach other servers. Use Claude in claude.ai here, or open the standalone file for this provider.';
   if (!c.endpoint.trim()) return 'Add the endpoint URL.';
   if (!c.model.trim()) return 'Add a model name.';
   if (AI.provider === 'anthropic' && !c.key.trim()) return 'Paste an Anthropic API key.';
@@ -778,7 +769,6 @@ function curStatus(text){
   const why = aiReason();
   if (why === 'off'){ el.textContent = 'off'; return; }
   if (CUR.busy){ el.textContent = `looking at generation ${S.gen + 1}…`; return; }
-  if (why === 'connecting'){ el.textContent = 'connecting…'; return; }
   if (why){ el.textContent = 'not set up · see model settings'; return; }
   const agree = CUR.rounds ? ` · you agreed ${CUR.agree} of ${CUR.rounds}` : '';
   if (CUR.every === 0){ el.textContent = 'only when asked' + agree; return; }
@@ -789,30 +779,27 @@ function syncAI(){
   const p = AI.provider, c = cfg();
   $('curOn').setAttribute('aria-pressed', AI.on ? 'true' : 'false'); $('curOn').textContent = AI.on ? 'On' : 'Off';
   $('curBody').hidden = !AI.on; $('curOffNote').hidden = AI.on;
-  $('curTitle').textContent = `${aiName()}'s eye`;
-  $('curAsk').textContent = `Ask ${aiName()} now`;
+  $('curTitle').textContent = 'AI breeder';
+  $('curAsk').textContent = 'Ask model now';
   $('aiProvider').value = p;
-  $('aiModelSelWrap').hidden = p !== 'claude'; $('aiModelWrap').hidden = p === 'claude';
-  $('aiEndpointWrap').hidden = p === 'claude'; $('aiKeyWrap').hidden = p === 'claude'; $('aiRememberWrap').hidden = p === 'claude';
-  if (p === 'claude') $('aiModelSel').value = c.model;
-  else {
-    if (document.activeElement !== $('aiModel')) $('aiModel').value = c.model;
-    if (document.activeElement !== $('aiEndpoint')) $('aiEndpoint').value = c.endpoint;
-    if (document.activeElement !== $('aiKey')) $('aiKey').value = c.key;
-    $('aiKey').placeholder = p === 'anthropic' ? 'sk-ant-…' : 'optional for local servers';
-    $('aiModels').innerHTML = MODELS[p].map(m => `<option value="${m}"></option>`).join('');
-  }
+  const selWrap = $('aiModelSelWrap'); if (selWrap) selWrap.hidden = true;
+  $('aiModelWrap').hidden = false;
+  $('aiEndpointWrap').hidden = false; $('aiKeyWrap').hidden = false; $('aiRememberWrap').hidden = false;
+  if (document.activeElement !== $('aiModel')) $('aiModel').value = c.model;
+  if (document.activeElement !== $('aiEndpoint')) $('aiEndpoint').value = c.endpoint;
+  if (document.activeElement !== $('aiKey')) $('aiKey').value = c.key;
+  $('aiKey').placeholder = p === 'anthropic' ? 'sk-ant-…' : 'optional for local servers';
+  $('aiModels').innerHTML = MODELS[p].map(m => `<option value="${m}"></option>`).join('');
   const eff = $('aiEffort');
   eff.innerHTML = EFFORTS[p].map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
   if (!EFFORTS[p].some(([v]) => v === c.effort)) c.effort = '';
   eff.value = c.effort;
   $('aiImage').checked = AI.image; $('aiRemember').checked = AI.remember;
-  const model = p === 'claude' ? (c.model ? modelName(c.model) : 'default model') : (c.model || 'no model yet');
+  const model = c.model || 'no model yet';
   $('curSetSum').textContent = `${PROVIDERS[p]} · ${model}${c.effort ? ' · ' + c.effort + ' effort' : ''}`;
   const why = aiReason(), note = $('aiNote');
-  note.classList.toggle('warn', !!why && why !== 'connecting' && why !== 'off');
-  note.textContent = why && why !== 'connecting' && why !== 'off' ? why
-    : p === 'claude' ? 'Runs on your Claude account; each turn counts toward your usage. If the chosen model isn’t available to you, claude.ai answers with its default and the log says so. Effort here goes up to High.'
+  note.classList.toggle('warn', !!why && why !== 'off');
+  note.textContent = why && why !== 'off' ? why
     : p === 'anthropic' ? 'Requests go straight from this page to the endpoint with your key. Leave the endpoint as is unless you use a proxy or gateway. Higher effort means more thinking and a slower, costlier turn.'
     : 'Any server with an OpenAI-style /chat/completions route: OpenAI, OpenRouter, a gateway, or a local server. The endpoint is the base URL, for example https://api.openai.com/v1. Local servers must allow requests from this page (for Ollama, set OLLAMA_ORIGINS). Untick the picture for models without vision.';
   curStatus();
@@ -837,7 +824,7 @@ async function sheetBlob(){
   return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.9));
 }
 function buildPrompt(withImage){
-  const lines = S.litter.map((k, i) => `${i + 1}. shape: ${E.print(k.g.t)}\n   colour: ${E.print(k.g.c)}\n   surface: ${kindOf(k.g)}${k.by === 'claude' ? '  (your own proposal from last turn)' : ''}`).join('\n');
+  const lines = S.litter.map((k, i) => `${i + 1}. shape: ${E.print(k.g.t)}\n   colour: ${E.print(k.g.c)}\n   surface: ${kindOf(k.g)}${k.by === 'ai' ? '  (your own proposal from last turn)' : ''}`).join('\n');
   const notes = CUR.notes.length ? CUR.notes.map((n, i) => `${i + 1}. ${n}`).join('\n') : 'none yet, this is your first turn';
   const picks = CUR.picks.length ? CUR.picks.map(p => '- ' + p).join('\n') : '- none yet';
   const agree = CUR.rounds ? `When you both looked at the same litter, the human picked your favourite ${CUR.agree} of ${CUR.rounds} times.` : '';
@@ -882,16 +869,6 @@ function endpointUrl(base, path){
   if (path === 'anthropic'){ if (/\/messages$/.test(u)) return u; return /\/v1$/.test(u) ? u + '/messages' : u + '/v1/messages'; }
   return /\/chat\/completions$/.test(u) ? u : u + '/chat/completions';
 }
-async function viaSample(prompt, blob, c, signal){
-  const opts = {cache:false, signal};
-  if (blob) opts.images = [blob];
-  if (c.model){ opts.model = c.model; opts.modelTier = TIER[c.model] || 'default'; }
-  if (c.effort) opts.effort = c.effort;
-  const r = await CUR.sample(prompt, opts);
-  let who = 'Claude';
-  if (c.model) who = r.modelApplied ? modelName(r.modelApplied) : `Claude, ${r.modelTierApplied || 'default'} tier (${modelName(c.model)} not available)`;
-  return {json:parseReply(r.text), who};
-}
 async function httpJSON(url, init){
   let r;
   try { r = await fetch(url, init); }
@@ -929,24 +906,21 @@ async function viaOpenAI(prompt, blob, c, signal){
   const text = !m ? '' : typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.map(x => x.text || '').join('') : '';
   return {json:parseReply(text), who:j.model || c.model};
 }
-async function askClaude(){
+async function askBreeder(){
   if (CUR.busy || !usable()) return;
   const litterId = S.litterId, p = AI.provider, c = {...cfg()}, name = aiName();
   const ctl = new AbortController(); setBusy(ctl);
   try {
-    const wantImg = AI.image && (p !== 'claude' || CUR.images);
-    const blob = wantImg ? await sheetBlob() : null;
+    const blob = AI.image ? await sheetBlob() : null;
     const prompt = buildPrompt(!!blob);
-    const out = p === 'claude' ? await viaSample(prompt, blob, c, ctl.signal)
-              : p === 'anthropic' ? await viaAnthropic(prompt, blob, c, ctl.signal)
+    const out = p === 'anthropic' ? await viaAnthropic(prompt, blob, c, ctl.signal)
               : await viaOpenAI(prompt, blob, c, ctl.signal);
     if (S.litterId !== litterId || !AI.on) return;
     applyVerdict(out.json, out.who, name);
   } catch (e) {
     const code = e && e.code;
     if (code === 'cancelled' || (e && e.name === 'AbortError')) {}
-    else if (['not_granted', 'sampling_disabled', 'capability_disabled', 'capability_removed', 'not_declared'].includes(code)){ CUR.sampleState = 'none'; syncAI(); toast('Claude is not available for this page.'); }
-    else if (code === 'images_unavailable'){ CUR.images = false; toast('Images can’t be sent here; Claude will judge from the formulas.'); }
+    else if (code === 'images_unavailable'){ toast('Images can’t be sent here; the model will judge from the formulas.'); }
     else if (code === 'rate_limited'){ toast(`${name} is rate-limited right now. Try again in a bit.`); }
     else if (code === 'invalid_json'){ logNote(`${name}’s reply could not be read as JSON. Ask again, or try another model.`); }
     else { logNote(`${name} could not answer: ` + ((e && e.message) || 'unknown error')); }
@@ -954,7 +928,7 @@ async function askClaude(){
     setBusy(null);
   }
 }
-function buildClaudeChild(res, favG){
+function buildAiChild(res, favG){
   if (!res.formula || typeof res.formula !== 'string') return {why:'no formula'};
   let t, c;
   try { t = E.parse(res.formula); } catch (e) { return {why:'formula did not parse: ' + e.message}; }
@@ -973,17 +947,17 @@ function applyVerdict(res, who, name){
   if (!(fav >= 1 && fav <= 6)){ logNote(`${name}’s reply had no favourite.`); return; }
   const rank = Array.isArray(res.ranking) ? res.ranking.map(Number).filter(n => n >= 1 && n <= 6) : [];
   const favK = S.litter[fav - 1];
-  const child = buildClaudeChild(res, favK.g);
+  const child = buildAiChild(res, favK.g);
   const critique = String(res.critique || '').slice(0, 240), taste = String(res.taste || '').slice(0, 240);
   if (taste){ CUR.notes.push(taste); if (CUR.notes.length > 5) CUR.notes.shift(); }
-  S.litter.forEach(k => { k.claudePick = false; });
-  favK.claudePick = true; favK.pickBy = name;
+  S.litter.forEach(k => { k.aiPick = false; });
+  favK.aiPick = true; favK.pickBy = name;
   let replaced = 0;
   if (CUR.role === 'advise'){
     if (child.g){
       let slot = rank.length ? rank[rank.length - 1] : 6;
       if (slot === fav) slot = fav === 6 ? 5 : 6;
-      S.litter[slot - 1] = {g:child.g, label:name, by:'claude'};
+      S.litter[slot - 1] = {g:child.g, label:name, by:'ai'};
       replaced = slot;
       queueThumb(child.g, pups[slot - 1].cv, 'pup' + (slot - 1), thumbSize);
     }
@@ -1054,7 +1028,7 @@ function startCountdown(fav, child, name){
   const tick = () => {
     $('turnText').innerHTML = '<b></b> picks offspring ' + fav + '. Adopting in ' + left + ' s.';
     $('turnText').querySelector('b').textContent = name || aiName();
-    if (left-- <= 0){ cancelCountdown(); adopt(fav - 1, 'claude', child); }
+    if (left-- <= 0){ cancelCountdown(); adopt(fav - 1, 'ai', child); }
   };
   $('turn').hidden = false; tick();
   CUR.countdown = setInterval(tick, 1000);
@@ -1063,7 +1037,6 @@ function cancelCountdown(){ if (CUR.countdown){ clearInterval(CUR.countdown); CU
 $('turnCancel').addEventListener('click', () => { cancelCountdown(); toast('Your turn. Pick any offspring.'); });
 $('curAsk').addEventListener('click', () => {
   const why = aiReason();
-  if (why === 'connecting'){ toast('Still connecting to Claude. Try again in a moment.'); return; }
   if (why){ $('curSet').open = true; toast(why); return; }
   CUR.pendingAsk = true; curStatus('waiting for the litter to render…');
 });
@@ -1076,25 +1049,15 @@ $('curOn').addEventListener('click', () => {
   syncAI(); aiSave();
 });
 $('aiProvider').addEventListener('change', e => { if (CUR.busy) CUR.busy.abort(); AI.provider = e.target.value; syncAI(); aiSave(); });
-$('aiModelSel').addEventListener('change', e => { AI.cfg.claude.model = e.target.value; syncAI(); aiSave(); });
 $('aiModel').addEventListener('input', e => { cfg().model = e.target.value; syncAI(); aiSave(); });
 $('aiEffort').addEventListener('change', e => { cfg().effort = e.target.value; syncAI(); aiSave(); });
 $('aiEndpoint').addEventListener('input', e => { cfg().endpoint = e.target.value; syncAI(); aiSave(); });
 $('aiKey').addEventListener('input', e => { cfg().key = e.target.value; syncAI(); aiSave(); });
 $('aiImage').addEventListener('change', e => { AI.image = e.target.checked; aiSave(); });
 $('aiRemember').addEventListener('change', e => { AI.remember = e.target.checked; aiSave(); });
-async function connectClaude(){
+function initAiBreeder(){
   aiLoad();
-  if (!INSIDE) CUR.sampleState = 'none';
-  $('curSet').open = !INSIDE && !usable() && AI.on;
-  syncAI();
-  if (!INSIDE) return;
-  try {
-    const sample = await window.claude.use('sample');
-    if (!sample){ CUR.sampleState = 'none'; syncAI(); return; }
-    CUR.sample = sample; CUR.sampleState = 'ready';
-    try { const lim = await sample.limits(); CUR.images = !!(lim && lim.images); } catch (e) { CUR.images = false; }
-  } catch (e) { CUR.sampleState = 'none'; }
+  $('curSet').open = !usable() && AI.on;
   syncAI();
 }
 /* ================= Snapshot and shader export ================= */
@@ -1339,7 +1302,6 @@ async function finishSnapshot(s){
 }
 async function saveFile(filename, data, btn){
   if (!DL){
-    if (window.claude){ btn.hidden = true; if (btn.id === 'snapSave'){ $('snapHint').textContent = 'Saving is not available in this view.'; $('snapHint').hidden = false; } return; }
     const a = document.createElement('a'); a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], {type:'text/plain'}));
     a.download = filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
@@ -1383,7 +1345,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
 }
 `;
 }
-$('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); $('glslSave').hidden = !DL && !!window.claude; openSheet('glsl'); });
+$('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); $('glslSave').hidden = false; openSheet('glsl'); });
 $('glslCopy').addEventListener('click', () => copyText($('glslText').value, 'Shader copied. Paste it into a new shader on shadertoy.com.', $('glslText')));
 $('glslSave').addEventListener('click', () => saveFile(`noise-sculpture-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
 
@@ -1404,8 +1366,6 @@ new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(() => { s
 function onTheme(){ BG = readBg(); focusDirty = true; queueLitter(); queueShelf(); }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
-(async () => { try { if (window.claude && typeof window.claude.use === 'function') DL = await window.claude.use('downloads'); } catch (e) { DL = null; } })();
-
 const saved = store.load();
 if (saved){
   const g = E.decode(saved.p); if (g){ S.parent = g; S.gen = saved.gen || 1; }
@@ -1436,5 +1396,5 @@ if (!glInit()){
   setScale(scale); measureThumbs(); queueLitter();
   requestAnimationFrame(frame);
 }
-connectClaude();
+initAiBreeder();
 })();
