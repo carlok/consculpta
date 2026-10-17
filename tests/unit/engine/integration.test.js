@@ -17,7 +17,7 @@ describe('engine integration', () => {
       { a: [0.5, 0.5, 0.5], b: [0.3, 0.3, 0.3], c: [0.8, 0.8, 0.8], d: [0.1, 0.2, 0.3] },
       v,
     );
-    expect(E.pretty(tree)).toContain('warp');
+    expect(E.pretty(tree)).toContain('soft');
     expect(E.depth(tree)).toBeGreaterThan(0);
     expect(E.size(tree)).toBeGreaterThan(0);
     expect(E.cost(tree)).toBeGreaterThan(0);

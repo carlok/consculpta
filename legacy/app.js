@@ -352,7 +352,7 @@ const THUMB_CAM = [0.7, 0.38, 3.35];
 const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
 
 const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[],
-           spin:!reduceMotion, morph:false, morphT:0, yaw:0.7, pitch:0.38, dist:3.55, distT:3.55};
+           spin:!reduceMotion, morph:false, morphT:0, yaw:4.4434, pitch:0.3615, dist:3.55, distT:3.55};
 const CUR = {every:3, role:'advise', since:0, busy:null, notes:[], log:[], picks:[], 
              agree:0, rounds:0, pendingAsk:false, countdown:null};
 let BG = [0.82, 0.85, 0.81];
@@ -713,7 +713,12 @@ function setBig(on){
   try { localStorage.setItem('nsb.big', on ? '1' : '0'); } catch (e) {}
 }
 $('bigView').addEventListener('click', () => setBig(!$('bench').classList.contains('big')));
-try { if (localStorage.getItem('nsb.big') === '0') setBig(false); } catch (e) {}
+try {
+  const bigPref = localStorage.getItem('nsb.big');
+  setBig(bigPref === '1');
+} catch (e) {
+  setBig(false);
+}
 
 /* ================= AI breeder: Anthropic API or OpenAI-compatible endpoint ================= */
 const PROVIDERS = {anthropic:'Anthropic API', openai:'OpenAI-compatible'};
@@ -1368,6 +1373,11 @@ function onTheme(){ BG = readBg(); focusDirty = true; queueLitter(); queueShelf(
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 const saved = store.load();
+if (!saved){
+  S.yaw = 4.4434;
+  S.pitch = 0.3615;
+  S.dist = S.distT = 3.55;
+}
 if (saved){
   const g = E.decode(saved.p); if (g){ S.parent = g; S.gen = saved.gen || 1; }
   if (typeof saved.m === 'number'){ S.mutation = saved.m; $('rate').value = Math.round(saved.m*100); $('rateOut').textContent = Math.round(saved.m*100) + '%'; }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // @ts-nocheck
 import { fitIso, viable } from './analysis.js';
+import { defaultSpecimenGenome } from './default-specimen.js';
 import { cloneG, DISCRETE, NS, PALETTE, STRANDS_OFF, STRANDS_ON, val } from './genome.js';
 import { BY_KIND, OPS } from './ops.js';
 import { parse } from './parse.js';
@@ -192,35 +193,5 @@ export function randomGenome() {
   return startGenome();
 }
 export function startGenome() {
-  return {
-    t: parse('warp(0.5, 0.6, 3, fbm(1, 2, 7))'),
-    c: parse('noise(0.9, 11)'),
-    v: [
-      0.6,
-      0.2143,
-      0.1667,
-      0.4167,
-      0.1667,
-      0.6,
-      0.8,
-      0.5,
-      0.5,
-      0.5,
-      0.825,
-      0.675,
-      0.625,
-      0.5,
-      0.5,
-      0.5,
-      0,
-      0.15,
-      0.2,
-      0,
-      0.7,
-      0.583,
-      0.6,
-      0.1114,
-      STRANDS_OFF,
-    ],
-  };
+  return defaultSpecimenGenome();
 }

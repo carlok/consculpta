@@ -21,6 +21,14 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#curOn')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#curOn')).toHaveText('Off');
     await expect(page.locator('#curOffNote')).toContainText('Off.');
+
+    await expect(page.locator('#bigView')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#bench')).not.toHaveClass(/big/);
+
+    await expect(page.locator('#plateId')).toContainText('74C8', { timeout: 45_000 });
+    await expect(page.locator('#code')).toHaveValue(
+      await page.evaluate(() => ENGINE.DEFAULT_SPECIMEN_CODE),
+    );
   });
 
   test('loads without a blocking modal or console errors', async ({ page }) => {

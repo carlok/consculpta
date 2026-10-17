@@ -66,3 +66,12 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 | Engine layout | `src/engine/*` modules | rng, noise, ops, parse, print, evaluate, codegen-glsl, genome, analysis, evolve, palette (+ tree helpers) |
 | Legacy site engine | **Modular IIFE bundle** | `index.html` loads `legacy/engine.bundle.js` built from `src/engine/`; behaviour matches frozen `legacy/engine.snapshot.js` (parity tests) |
 | Coverage | `src/engine/**` | Vitest ≥90% lines, ≥85% branches; HTML report on Pages |
+
+## Default specimen and layout (maintainer UI)
+
+| Decision | Choice | Notes |
+|----------|--------|-------|
+| First-visit parent genome | Pinned `nsb3` in `src/engine/default-specimen.js` | Reconstructed from `docs/fixtures/default-specimen-39E1.glsl`; `startGenome()` and **Reset genome** use this specimen |
+| Short tag | **74C8** with current encode | Maintainer export label “39E1”; same formulas/uniforms, tag is hash of `nsb3` string |
+| First-visit camera | azimuth **4.4434**, elevation **0.3615**, distance **3.55** | From shader export; overridden when `nsb.v3` is stored |
+| Large view default | **Off** (side-by-side) | `localStorage.nsb.big === '1'` enables; absent or `0` keeps layout compact |
