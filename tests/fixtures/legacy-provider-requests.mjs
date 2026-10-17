@@ -5,7 +5,9 @@
  */
 
 export function endpointUrl(base, path) {
-  let u = String(base || '').trim().replace(/\/+$/, '');
+  const u = String(base || '')
+    .trim()
+    .replace(/\/+$/, '');
   if (path === 'anthropic') {
     if (/\/messages$/.test(u)) return u;
     return /\/v1$/.test(u) ? u + '/messages' : u + '/v1/messages';
@@ -24,7 +26,7 @@ export function anthropicRequest(c, prompt, imageB64) {
   content.push({ type: 'text', text: prompt });
   const body = {
     model: c.model.trim(),
-    max_tokens: ({ xhigh: 32000, max: 32000, high: 16000, '': 16000 })[c.effort] || 8000,
+    max_tokens: { xhigh: 32000, max: 32000, high: 16000, '': 16000 }[c.effort] || 8000,
     messages: [{ role: 'user', content }],
   };
   if (c.effort) body.output_config = { effort: c.effort };

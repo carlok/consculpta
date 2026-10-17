@@ -4,9 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run"
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "node scripts/inline-single-file.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "glsl": "node scripts/glsl-check.mjs",
+    "e2e": "playwright test",
+    "check": "npm run lint && npm run typecheck && npm run test"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.0.5",
+    "@types/node": "24.7.0",
+    "@playwright/test": "1.55.1",
+    "@vitest/coverage-v8": "3.2.4",
+    "typescript": "5.9.3",
+    "vite": "7.1.9",
     "vitest": "3.2.4"
   }
 }

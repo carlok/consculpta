@@ -30,8 +30,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run characterization tests
-        run: npm test
+      - name: Run checks
+        run: npm run check
 
   deploy:
     needs: test
@@ -60,8 +60,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run characterization tests
-        run: npm test
+      - name: Run checks
+        run: npm run check
 
       - name: Prepare static site
         run: |
