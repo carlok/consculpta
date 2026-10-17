@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Formula editors flag parse errors as you type (`aria-invalid`, message in the status line) and apply with `⌘/Ctrl+Enter`.
 - Engine exports `DISCRETE`, `STRANDS_ON` and `STRANDS_OFF`.
 - Stage overlay holds icon toggles for Spin, Morph and Fullscreen next to zoom and a camera-reset icon; the action bar keeps specimen actions, export, and Large view.
+- **Copy link** in the genome code row: the URL carries the genome in its hash (`#nsb3…`). Opening it loads that specimen, keeps yours one Undo away, and clears the hash.
+- The litter and the last 15 parents are saved with the session, so a reload shows the same six offspring and Undo still works.
+- Snapshot size, frame and smoothing are remembered (`nsb.snap`). The shader sheet shows the line count and an **Open Shadertoy** link.
 - Stage shows "compiling formula…" over the old picture while a new parent's shader compiles (after 180 ms), and a clear message if it fails.
 - Two fingers dragged up or down tilt the camera on touch screens.
 - The orbit hint fades after your first orbit or zoom and stays hidden on this device (`nsb.hinted`).
@@ -39,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The Snapshot / Shader code sheet is a native modal `<dialog>`: focus stays inside, the page behind is inert, Escape closes it.
 - The mouse wheel over the stage scrolls the page unless the stage is engaged (clicked or focused, fullscreen) or ⌘/Ctrl is held; a tip explains this. Trackpad pinch still zooms.
 - Spin and morph stop drawing while the stage is scrolled out of view, leaving the GPU to litter thumbnails.
 - AI breeder moves below the shelf and genome; when off it shows one line instead of a status, a button and a paragraph that all said "off".

@@ -361,9 +361,13 @@ let focusDirty = true, scale = coarse ? 0.6 : 1, emaDt = 16, adaptN = 0, lastTs 
 let thumbSize = 240, queue = [], snap = null, snapBlob = null, DL = null, glLost = false;
 const drag = {active:false, x:0, y:0, touch:false};
 let keyHeld = 0, keyTimer = 0;
+const HIST_SAVED = 15;
 const store = {
   load(){ try { return JSON.parse(localStorage.getItem('nsb.v3') || 'null'); } catch (e) { return null; } },
+  /* lit: the current litter, so a reload shows the same six; hist: recent parents, so Undo survives a reload. */
   save(){ try { localStorage.setItem('nsb.v3', JSON.stringify({p:E.encode(S.parent), gen:S.gen, m:S.mutation, shelf:S.shelf, kseq:S.kseq,
+    lit:S.litter.map(k => ({c:E.encode(k.g), l:k.label || '', ai:k.by === 'ai' ? 1 : 0})),
+    hist:S.history.slice(-HIST_SAVED).map(h => ({p:E.encode(h.parent), gen:h.gen})),
     cur:{every:CUR.every, role:CUR.role, notes:CUR.notes, log:CUR.log.slice(0, 8), agree:CUR.agree, rounds:CUR.rounds}})); } catch (e) {} },
 };
 
@@ -476,8 +480,11 @@ function drawFocus(){
   }
   stageBusy('');
   drawWith(e, S.parent, {w:fc.width, h:fc.height, cam:[S.yaw, S.pitch, S.dist], mt:S.morphT});
+  if (afterFirstDraw){ const f = afterFirstDraw; afterFirstDraw = null; setTimeout(f, 0); }
   return true;
 }
+/* Runs once the parent is first on screen, so a boot-time toast is not spent while shaders compile. */
+let afterFirstDraw = null;
 /* Overlay while the parent's shader compiles (after a short grace period, so fast compiles don't flash) or failed. */
 let busySince = 0;
 function stageBusy(text, now){
@@ -578,7 +585,8 @@ function pushHistory(){
 function syncHistoryButtons(){ $('undo').disabled = S.history.length === 0; $('redo').disabled = S.future.length === 0; }
 function restoreState(h){
   cancelCountdown(); clearTimeout(editTimer); editing = false;
-  S.parent = h.parent; S.gen = h.gen; S.litter = h.litter; S.litterId++;
+  S.parent = h.parent; S.gen = h.gen;
+  if (h.litter && h.litter.length === 6){ S.litter = h.litter; S.litterId++; } else breed();   // history restored from storage has no litter
   refreshAll();
 }
 function undo(){
@@ -723,7 +731,7 @@ $('resetGenes').addEventListener('click', () => {
 $('undo').addEventListener('click', undo);
 $('redo').addEventListener('click', redo);
 $('random').addEventListener('click', () => { pushHistory(); S.parent = E.randomGenome(); S.gen = 1; breed(); refreshAll(); undoToast(`Random specimen ${E.tag(S.parent)}.`); });
-$('reroll').addEventListener('click', () => { cancelCountdown(); breed(); syncLitter(); queueLitter(); });
+$('reroll').addEventListener('click', () => { cancelCountdown(); breed(); syncLitter(); queueLitter(); store.save(); });
 $('rate').addEventListener('input', e => { S.mutation = e.target.value/100; $('rateOut').textContent = e.target.value + '%'; });
 $('rate').addEventListener('change', () => { breed(); syncLitter(); queueLitter(); store.save(); });
 function setToggle(id, on){ $(id).setAttribute('aria-pressed', on ? 'true' : 'false'); }
@@ -783,6 +791,8 @@ $('keep').addEventListener('click', () => {
   } else toast(first ? `Kept as ${item.k}. From the next litter on, offspring 5 and 6 graft in branches from the shelf.` : `Kept as ${item.k}.`);
 });
 $('copyCode').addEventListener('click', () => copyText(E.encode(S.parent), 'Genome code copied.', $('code')));
+const shareUrl = () => location.origin + location.pathname + '#' + E.encode(S.parent);
+$('copyLink').addEventListener('click', () => copyText(shareUrl(), 'Link copied. Opening it loads this specimen.', $('code')));
 $('loadCode').addEventListener('click', () => {
   const g = E.decode($('code').value);
   if (!g){ toast('That is not a genome code. It starts with nsb3.'); return; }
@@ -1249,12 +1259,14 @@ function openSheet(view){
   $('snapView').hidden = view !== 'snap'; $('glslView').hidden = view !== 'glsl';
   $('sheetTitle').textContent = view === 'snap' ? 'Snapshot' : 'Shader code';
   sheet.querySelector('.sheet-panel').classList.toggle('wide', view === 'snap');
-  sheet.hidden = false; $('sheetClose').focus();
+  if (!sheet.open) sheet.showModal();
+  $('sheetClose').focus();
 }
-function closeSheet(){ sheet.hidden = true; cancelSnapshot(); if (sheetReturn && sheetReturn.focus) sheetReturn.focus(); }
+/* A modal <dialog>: focus stays inside, the page behind is inert, Escape closes it natively. */
+function closeSheet(){ if (sheet.open) sheet.close(); }
+sheet.addEventListener('close', () => { cancelSnapshot(); if (sheetReturn && sheetReturn.focus) sheetReturn.focus(); });
 $('sheetClose').addEventListener('click', closeSheet);
 sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
 /* Page-wide shortcuts. Skipped while typing, while a sheet or dialog is open, and for keys the stage already used. */
 const keys = $('keys');
 $('keysOpen').addEventListener('click', () => keys.showModal());
@@ -1262,7 +1274,7 @@ $('keysClose').addEventListener('click', () => keys.close());
 keys.addEventListener('click', e => { if (e.target === keys) keys.close(); });
 const typing = el => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 document.addEventListener('keydown', e => {
-  if (e.defaultPrevented || e.altKey || typing(e.target) || !sheet.hidden || keys.open) return;
+  if (e.defaultPrevented || e.altKey || typing(e.target) || sheet.open || keys.open) return;
   const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
   let act = null;
   if (mod){
@@ -1363,7 +1375,15 @@ function updateSnapInfo(){
   const [W, H] = snapDims(), ss = Number($('snapSS').value);
   $('snapInfo').textContent = `${W} × ${H} px · ${(W*H/1e6).toFixed(1)} megapixels · ${ss === 2 ? 4 : 1} sample${ss === 2 ? 's' : ''} per pixel`;
 }
-['snapSize', 'snapFrame', 'snapSS'].forEach(id => $(id).addEventListener('change', updateSnapInfo));
+const SNAP_OPTS = ['snapSize', 'snapFrame', 'snapSS'];
+SNAP_OPTS.forEach(id => $(id).addEventListener('change', () => {
+  updateSnapInfo();
+  try { localStorage.setItem('nsb.snap', JSON.stringify(Object.fromEntries(SNAP_OPTS.map(k => [k, $(k).value])))); } catch (e) {}
+}));
+try {
+  const o = JSON.parse(localStorage.getItem('nsb.snap') || 'null') || {};
+  SNAP_OPTS.forEach(k => { if ([...$(k).options].some(x => x.value === o[k])) $(k).value = o[k]; });
+} catch (e) {}
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(buf, a, b){ let c = 0xFFFFFFFF; for (let i = a; i < b; i++) c = CRC[(c ^ buf[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
 function pngChunk(type, data){
@@ -1549,7 +1569,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
 }
 `;
 }
-$('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); $('glslSave').hidden = false; openSheet('glsl'); });
+$('glsl').addEventListener('click', () => {
+  const src = exportGLSL();
+  $('glslText').value = src; $('glslSave').hidden = false;
+  $('glslInfo').textContent = `${src.split('\n').length} lines · G${S.gen} · ${E.tag(S.parent)}`;
+  openSheet('glsl');
+});
 $('glslCopy').addEventListener('click', () => copyText($('glslText').value, 'Shader copied. Paste it into a new shader on shadertoy.com.', $('glslText')));
 $('glslSave').addEventListener('click', () => saveFile(`consculpta-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
 
@@ -1590,11 +1615,15 @@ function onTheme(){ BG = readBg(); focusDirty = true; queueLitter(); queueShelf(
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 const saved = store.load();
+let savedLitter = null;
 if (saved){
   const g = E.decode(saved.p); if (g){ S.parent = g; S.gen = saved.gen || 1; }
   if (typeof saved.m === 'number'){ S.mutation = saved.m; $('rate').value = Math.round(saved.m*100); $('rateOut').textContent = Math.round(saved.m*100) + '%'; }
   if (Array.isArray(saved.shelf)) S.shelf = saved.shelf.filter(x => x && E.decode(x.code)).slice(0, SHELF_MAX);
   S.kseq = saved.kseq || S.shelf.length;
+  if (Array.isArray(saved.hist)) S.history = saved.hist.map(h => ({parent:E.decode(h && h.p), gen:(h && h.gen) || 1, litter:null})).filter(h => h.parent);
+  const lit = g && Array.isArray(saved.lit) ? saved.lit.map(k => ({g:E.decode(k && k.c), label:(k && k.l) || '', by:k && k.ai ? 'ai' : undefined})) : [];
+  if (lit.length === 6 && lit.every(k => k.g)) savedLitter = lit;
   if (saved.cur){
     CUR.every = [0, 2, 3, 5].includes(saved.cur.every) ? saved.cur.every : 3;
     CUR.role = saved.cur.role === 'turns' ? 'turns' : 'advise';
@@ -1603,13 +1632,28 @@ if (saved){
     CUR.agree = saved.cur.agree || 0; CUR.rounds = saved.cur.rounds || 0;
   }
 }
+/* Share link: #nsb3… loads that specimen once, keeps yours one Undo away, and clears the hash. */
+let sharedLoaded = false;
+(() => {
+  let code = location.hash.slice(1);
+  try { code = decodeURIComponent(code); } catch (e) {}
+  if (!code) return;
+  const g = E.decode(code);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!g || E.encode(g) === E.encode(S.parent)) return;
+  S.history.push({parent:E.cloneG(S.parent), gen:S.gen, litter:null});
+  S.parent = g; S.gen = 1; savedLitter = null; sharedLoaded = true;
+})();
 $('curEvery').value = String(CUR.every); $('curRole').value = CUR.role;
 initAiBreeder();
 setToggle('spin', S.spin);
 BG = readBg();
-breed(); syncParent(); syncLitter(); renderLog(); curStatus();
+if (savedLitter){ S.litter = savedLitter; S.litterId++; } else breed();
+syncParent(); syncLitter(); renderLog(); curStatus(); store.save();
+if (sharedLoaded) afterFirstDraw = () => undoToast(`Loaded shared specimen ${E.tag(S.parent)}. Undo returns to yours.`);
 if (!glInit()){
   showStageError('This page needs WebGL 2. Current Safari, Chrome and Firefox all support it.');
+  if (afterFirstDraw){ afterFirstDraw(); afterFirstDraw = null; }
 } else {
   if (GL.info){
     const raw = String(GL.info), m = /Renderer: ([^,)]+)/.exec(raw);

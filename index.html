@@ -101,9 +101,10 @@
             <div class="sliders" id="gLight"></div>
           </div>
           <div class="code-row">
-            <label for="code">Genome code. Paste one and press Load to restore a specimen.</label>
+            <label for="code">Genome code. Paste one and press Load to restore a specimen, or copy a link that opens it.</label>
             <input id="code" type="text" spellcheck="false" autocomplete="off">
             <button class="btn" id="copyCode" type="button">Copy</button>
+            <button class="btn" id="copyLink" type="button">Copy link</button>
             <button class="btn" id="loadCode" type="button">Load</button>
           </div>
         </div>
@@ -185,7 +186,7 @@
   </footer>
 </div>
 
-<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+<dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
   <div class="sheet-panel">
     <div class="sheet-head"><h2 id="sheetTitle">Snapshot</h2><button class="btn" id="sheetClose" type="button">Close</button></div>
     <div id="snapView" style="display:grid;gap:12px">
@@ -225,10 +226,12 @@
       <div class="sheet-actions">
         <button class="btn btn-primary" id="glslCopy" type="button">Copy shader</button>
         <button class="btn" id="glslSave" type="button" hidden>Save as .txt</button>
+        <a class="btn" href="https://www.shadertoy.com/new" target="_blank" rel="noopener noreferrer">Open Shadertoy</a>
+        <span class="mono muted" id="glslInfo"></span>
       </div>
     </div>
   </div>
-</div>
+</dialog>
 <dialog class="keys" id="keys" aria-labelledby="keysTitle">
   <div class="sheet-head"><h2 id="keysTitle">Keyboard shortcuts</h2><button class="btn" id="keysClose" type="button">Close</button></div>
   <dl class="keys-list">

@@ -186,6 +186,63 @@ test.describe('Consculpta legacy site', () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(before);
   });
 
+  test('reload keeps the litter and Undo history', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.keyboard.press('2');
+    await expect(page.locator('#plateId')).toHaveText(/^G2 · /);
+    const plate = await page.locator('#plateId').textContent();
+    const tags = await page.locator('#litter .pup-id').allTextContents();
+
+    await page.reload();
+    await expect(page.locator('#plateId')).toHaveText(plate);
+    expect(await page.locator('#litter .pup-id').allTextContents()).toEqual(tags);
+    await expect(page.locator('#undo')).toBeEnabled();
+    await page.locator('#undo').click();
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+  });
+
+  test('share link loads a specimen once and Undo returns yours', async ({ page }) => {
+    test.setTimeout(120_000);
+    // Spin starts off with reduced motion, so software WebGL leaves time to act on the 6 s toast.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.locator('#random').click();
+    await expect(page.locator('#plateId')).not.toHaveText('G1 · 74C8');
+    const mine = await page.locator('#plateId').textContent();
+    const code = await page.evaluate(() => ENGINE.DEFAULT_SPECIMEN_CODE);
+
+    await page.goto('about:blank');
+    await page.goto(`/consculpta/#${code}`);
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('#toast')).toContainText('shared specimen');
+    expect(new URL(page.url()).hash).toBe('');
+    await page.locator('#toast .toast-act').click();
+    await expect(page.locator('#plateId')).toHaveText(mine);
+  });
+
+  test('export sheet is a modal dialog and keeps snapshot options', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.locator('#glsl').click();
+    const sheet = page.locator('#sheet');
+    await expect(sheet).toBeVisible();
+    await expect(page.locator('#glslInfo')).toContainText('lines');
+    for (let i = 0; i < 8; i++) await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('#sheet'))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+
+    await page.locator('#snap').click();
+    await page.locator('#snapFrame').selectOption('square');
+    await page.locator('#sheetClose').click();
+    await page.reload();
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(page.locator('#snapFrame')).toHaveValue('square');
+  });
+
   test('orbit hint retires after the first drag and stays retired', async ({ page }) => {
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');

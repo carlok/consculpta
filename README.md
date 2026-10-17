@@ -19,7 +19,7 @@ Open the [live site](https://carlok.github.io/consculpta/) in a WebGL 2 browser.
 
 1. **Breed** — Each litter has six offspring. Click one to adopt it as the new parent (generation counter increases). Use **New litter** to regenerate the litter without changing the parent, or adjust **Mutation** and breed again after adopting.
 2. **Kept specimens** — Press **Keep** to pin the current parent on the shelf. When the shelf is non-empty, some offspring crossbreed with a kept formula.
-3. **Genome** — Open the genome panel to edit the formula, scalars, and palette, or paste a genome code and **Load**.
+3. **Genome** — Open the genome panel to edit the formula, scalars, and palette, or paste a genome code and **Load**. **Copy link** gives a URL that opens the current specimen for anyone.
 4. **Export** — **Shader code** opens a sheet with a Shadertoy-ready GLSL export; **Snapshot** renders a high-resolution PNG from the current camera.
 5. **Large view** — On wide screens, **Large view** toggles a wider main stage versus giving the litter grid more room in the layout. On a first visit with no saved preference, it starts **off**. Your choice is stored in this browser (`localStorage` key `nsb.big`).
 6. **Undo and shortcuts** — **Undo** / **Redo** step through parents; most actions also show an Undo button in the toast. Press `?` for the keyboard shortcuts (`1`–`6` adopt, `N` new litter, `K` keep, `Z` undo).
@@ -33,7 +33,7 @@ Consculpta has **no backend**. The app runs entirely in your browser.
 - **Requests** go **directly** from your browser to the endpoint you configure (Anthropic API or an OpenAI-compatible base URL). Keys are not sent to the Consculpta repository, GitHub Pages, or any project server.
 - **Logging** — The app does not log API keys or model responses to a remote service. Provider traffic is between you and that provider under their terms.
 
-Other preferences (genome, shelf, mutation rate, layout, AI settings without keys) may be stored locally under `nsb.v3`, `nsb.ai`, and related keys so you can resume a session.
+Other preferences (genome, current litter, recent parents for Undo, shelf, mutation rate, layout, snapshot options, AI settings without keys) may be stored locally under `nsb.v3`, `nsb.ai`, `nsb.snap`, and related keys so you can resume a session.
 
 ## Development
 

@@ -246,10 +246,11 @@ input[type=range]{width:100%;min-width:0;accent-color:var(--accent);margin:0;hei
 .palgrid .ph{font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
 .palgrid .pl{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
 .palgrid input.r{accent-color:var(--ch-r)} .palgrid input.g{accent-color:var(--ch-g)} .palgrid input.b{accent-color:var(--ch-b)}
-.code-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.code-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
 .code-row label{grid-column:1/-1;font-size:13px;color:var(--muted)}
 .code-row input{min-width:0;width:100%;font:11px/1.2 var(--f-mono);color:var(--ink);background:var(--panel);border:1px solid var(--rule);padding:9px 10px;border-radius:4px}
 .code-row input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:480px){.code-row{grid-template-columns:repeat(3,auto);justify-content:start}.code-row input{grid-column:1/-1}}
 
 footer{color:var(--muted);font-size:13px;display:grid;gap:10px;max-width:80ch}
 footer a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
@@ -259,7 +260,12 @@ footer a:hover{text-decoration-thickness:2px}
 .footer-repo:hover{color:var(--accent)}
 .sheet a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
 
-.sheet{position:fixed;inset:0;z-index:20;background:var(--scrim);display:grid;place-items:center;padding-top:calc(16px + env(safe-area-inset-top, 0px));padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+/* .sheet is a modal <dialog> filling the viewport; the panel inside is the visible sheet and the backdrop is the scrim. */
+.sheet{position:fixed;inset:0;z-index:20;margin:0;width:100%;height:100%;max-width:none;max-height:none;border:0;background:transparent;color:inherit;place-items:center;padding-top:calc(16px + env(safe-area-inset-top, 0px));padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.sheet[open]{display:grid}
+.sheet::backdrop{background:var(--scrim)}
+a.btn{text-decoration:none}
+.sheet a.btn{color:var(--ink)}
 .sheet-panel{background:var(--panel);color:var(--ink);border:1px solid var(--rule);width:min(720px, 100%);max-height:100%;overflow:auto;padding:18px;display:grid;gap:14px}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .progress{height:4px;background:var(--rule)}
