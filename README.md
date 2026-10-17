@@ -2,6 +2,8 @@
 
 Interactive evolution of 3D sculptures from formulas over simplex noise, raymarched in WebGL 2.
 
+<p align="center"><img src="docs/images/specimen-01.png" alt="A Consculpta specimen: a porous, bubbly sphere of noise sculpture in iridescent green, pink, yellow and blue on black" width="560"></p>
+
 - **Live site:** https://carlok.github.io/consculpta/ (legacy UI until the refactored app ships)
 - **Licence:** [Apache-2.0](LICENSE)
 
