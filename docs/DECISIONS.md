@@ -67,11 +67,23 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 | Legacy site engine | **Modular IIFE bundle** | `index.html` loads `legacy/engine.bundle.js` built from `src/engine/`; behaviour matches frozen `legacy/engine.snapshot.js` (parity tests) |
 | Coverage | `src/engine/**` | Vitest ≥90% lines, ≥85% branches; HTML report on Pages |
 
+## Phase 3 (renderer)
+
+| Decision | Choice | Notes |
+|----------|--------|-------|
+| Renderer layout | `src/render/*` + `src/render/glsl/*` | shader, gl, camera, scheduler, png, tiler |
+| Simplex noise GLSL | **Vendored** [stegu/webgl-noise](https://github.com/stegu/webgl-noise) `noise3D.glsl` | MIT; under `third_party/webgl-noise/` |
+| Legacy site renderer | **Modular IIFE bundle** | `index.html` loads `legacy/render.bundle.js` from `src/render/` |
+| GLSL CI | `glslangValidator` via `npm run glsl` | Fragment probe stitches noise + prelude + scene |
+| Render coverage | Unit tests on shader, png, tiler, camera, scheduler | Vitest thresholds remain on `src/engine/**`; `gl.js` covered by e2e |
+| Noise parity e2e | Playwright + SwiftShader | SHA-256 of 64×64 thumb pixels for `ENGINE.defaultSpecimenGenome()` |
+| Litter thumb compile | **Deferred** | `queueThumb` enqueues only; `processThumbQueue` compiles one program per frame (no six blocking compiles at boot) |
+
 ## Default specimen and layout (maintainer UI)
 
 | Decision | Choice | Notes |
 |----------|--------|-------|
 | First-visit parent genome | Pinned `nsb3` in `src/engine/default-specimen.js` | Reconstructed from `docs/fixtures/default-specimen-39E1.glsl`; `startGenome()` and **Reset genome** use this specimen |
-| Short tag | **74C8** with current encode | Maintainer export label “39E1”; same formulas/uniforms, tag is hash of `nsb3` string |
+| Export label vs short tag | **39E1** (shader export) vs **74C8** (in-app tag) | **39E1** is the four hex digits from the maintainer’s Shadertoy/export filename, not produced by `tag()`. **74C8** is the last four hex digits of FNV-1a over the full `encode(g)` / `nsb3…` string (see `genome.tag`). Formulas, genes, and `P[]` match the fixture; only the display tag differs from the export label. |
 | First-visit camera | azimuth **4.4434**, elevation **0.3615**, distance **3.55** | From shader export; overridden when `nsb.v3` is stored |
 | Large view default | **Off** (side-by-side) | `localStorage.nsb.big === '1'` enables; absent or `0` keeps layout compact |

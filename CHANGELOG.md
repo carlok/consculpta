@@ -10,7 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 3 renderer: `src/render/*` (shader, gl, camera, scheduler, png, tiler), GLSL under `src/render/glsl/`, vendored MIT `third_party/webgl-noise`, Vite `legacy/render.bundle.js`, `glslangValidator` in CI, Playwright noise-parity e2e.
 - README: About (with footer links), How to use, Privacy and API keys, licence footer.
+
+### Changed
+
+- Legacy boot marks the footer and core UI state before enqueueing litter thumbnails, and litter shader compiles happen incrementally in the frame loop (avoids blocking first paint on six parallel compiles).
 
 ### Fixed
 
@@ -20,9 +25,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Large view** defaults to off on first visit (`nsb.big` unset); only `nsb.big === '1'` restores the previous large layout.
 - Default parent specimen is the maintainer showcase (G5 · 39E1 export): pinned `nsb3` code, formulas in `docs/fixtures/default-specimen-39E1.glsl`, initial camera from that export. **Reset genome** returns to this specimen (via `startGenome()`).
-
-### Changed
-
 - Footer “how it works” and credits paragraphs link to verified references (simplex noise, isosurfaces, ray marching, webgl-noise, cosine palettes, Shadertoy, MIT).
 - Site footer adds an inline GitHub icon link to the repository and a `© <year> carlok` line.
 - AI breeder defaults to **off** on first visit when no `nsb.ai` setting is stored; saved preferences are unchanged.
@@ -37,18 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Legacy site: `#sheet` modal visible on load because `.sheet { display: grid }` overrode the HTML `[hidden]` attribute; restored with `[hidden] { display: none !important }`.
 - User-facing product name is **Consculpta** (replacing “Noise Sculpture Breeder” in the live UI).
 
+## [0.1.0] - 2026-10-17
+
 ### Added
 
-- Playwright smoke test: Pages-style `/consculpta/` load with no blocking Snapshot dialog and no console errors.
-- Dependabot groups weekly npm dev-dependency and GitHub Actions updates into one PR each (low open-PR limit).
-
-### Added (earlier)
-
-- Phase 0 walking skeleton: `legacy/` extract of prototype CSS and scripts, `docs/PARITY.md`, Vitest characterization tests, vendored fonts under `third_party/`, GitHub Pages workflow deploying the legacy app with local fonts, `docs/DECISIONS.md`.
-- Project licence Apache-2.0; repository public on GitHub Pages.
-- Host-embedded artifact provider removed from product scope (Anthropic API and OpenAI-compatible only).
-- Planned Podman `containers/` dev setup in a later phase; self-hosting API proxy out of scope.
-
-### Changed
-
-- **Language policy:** provider-neutral AI breeder copy; removed `BRIEF.md` and the duplicate root prototype HTML; stripped host-artifact code paths from `legacy/app.js`.
+- Phase 0 walking skeleton: root `index.html`, `legacy/` site, vendored fonts, Vitest characterization of `legacy/engine.js`, Playwright smoke test, GitHub Actions CI and Pages deploy to `/consculpta/`.

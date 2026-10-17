@@ -2,353 +2,33 @@
 'use strict';
 const E = ENGINE;
 
-/* ================= GLSL ================= */
-const SNOISE = `
-vec3 mod289(vec3 x){ return x - floor(x*(1.0/289.0))*289.0; }
-vec4 mod289(vec4 x){ return x - floor(x*(1.0/289.0))*289.0; }
-vec4 permute(vec4 x){ return mod289(((x*34.0) + 10.0)*x); }
-vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314*r; }
-float snoise(vec3 v){
-  const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-  vec3 i = floor(v + dot(v, C.yyy));
-  vec3 x0 = v - i + dot(i, C.xxx);
-  vec3 g = step(x0.yzx, x0.xyz);
-  vec3 l = 1.0 - g;
-  vec3 i1 = min(g.xyz, l.zxy);
-  vec3 i2 = max(g.xyz, l.zxy);
-  vec3 x1 = x0 - i1 + C.xxx;
-  vec3 x2 = x0 - i2 + C.yyy;
-  vec3 x3 = x0 - D.yyy;
-  i = mod289(i);
-  vec4 p = permute(permute(permute(
-            i.z + vec4(0.0, i1.z, i2.z, 1.0))
-          + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-          + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-  float n_ = 0.142857142857;
-  vec3 ns = n_*D.wyz - D.xzx;
-  vec4 j = p - 49.0*floor(p*ns.z*ns.z);
-  vec4 x_ = floor(j*ns.z);
-  vec4 y_ = floor(j - 7.0*x_);
-  vec4 x = x_*ns.x + ns.yyyy;
-  vec4 y = y_*ns.x + ns.yyyy;
-  vec4 h = 1.0 - abs(x) - abs(y);
-  vec4 b0 = vec4(x.xy, y.xy);
-  vec4 b1 = vec4(x.zw, y.zw);
-  vec4 s0 = floor(b0)*2.0 + 1.0;
-  vec4 s1 = floor(b1)*2.0 + 1.0;
-  vec4 sh = -step(h, vec4(0.0));
-  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-  vec3 p0 = vec3(a0.xy, h.x);
-  vec3 p1 = vec3(a0.zw, h.y);
-  vec3 p2 = vec3(a1.xy, h.z);
-  vec3 p3 = vec3(a1.zw, h.w);
-  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-  vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-  m = m*m;
-  return 105.0*dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-}`;
-
-const PRE = `
-#define ISO     P[0].x
-#define THK     P[0].y
-#define MODE    P[0].z
-#define BANDS   P[0].w
-#define BOUND   P[1].x
-#define BSIZE   P[1].y
-#define FADE    P[1].z
-#define GLOSS   P[1].w
-#define PAL_A   P[2].xyz
-#define LANG    P[2].w
-#define PAL_B   P[3].xyz
-#define CSHIFT  P[3].w
-#define PAL_C   P[4].xyz
-#define CMIX    P[4].w
-#define PAL_D   P[5].xyz
-#define CSPREAD P[5].w
-#define NMEAN   P[6].x
-#define NSCALE  P[6].y
-#define GRAD    P[6].z
-#define CMEAN   P[7].x
-#define CSCALE  P[7].y
-#define STRANDS P[7].z
-
-vec3 gMT3 = vec3(0.0);
-${SNOISE}
-float fbmN(vec3 p, int o){
-  float a = 1.0, s = 0.0, n = 0.0;
-  for (int i = 0; i < 4; i++){
-    if (i >= o) break;
-    s += a*snoise(p); n += a;
-    p = p*2.0 + vec3(17.13, 5.71, 11.37);
-    a *= 0.5;
-  }
-  return s/n;
-}
-float sminF(float a, float b, float k){ float h = clamp(0.5 + 0.5*(b - a)/k, 0.0, 1.0); return mix(b, a, h) - k*h*(1.0 - h); }
-vec3 twistP(vec3 p, float k){ float c = cos(k*p.y), s = sin(k*p.y); return vec3(c*p.x - s*p.z, p.y, s*p.x + c*p.z); }
-vec3 rotX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c*p.y - s*p.z, s*p.y + c*p.z); }
-vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z); }
-vec3 rotZ(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z); }
-vec3 strandP(vec3 p){ return rotX(rotZ(p, 0.9), 1.3) + vec3(0.37, -0.61, 0.23); }
-vec3 warpP(vec3 p, float f, float m, vec3 o){
-  vec3 q = p*f + o;
-  return p + m*vec3(snoise(q), snoise(q + vec3(31.4, 0.0, 0.0)), snoise(q + vec3(0.0, 47.2, 0.0)));
-}
-`;
-
-const POST = `
-float sdBlock(vec3 p){
-  float s = BSIZE;
-  if (BOUND < 0.5) return length(p) - s;
-  if (BOUND < 1.5){
-    vec3 q = abs(p) - vec3(s*0.74);
-    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - s*0.08;
-  }
-  vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(s*0.82, s*0.78);
-  return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - s*0.04;
-}
-
-float field(vec3 p, out float nv){
-  nv = 0.0;
-  float b = sdBlock(p);
-  if (b > 0.12) return b;
-  float rr = clamp(1.0 + b/(0.6*BSIZE), 0.0, 1.0);
-  float n = (tree(p) - NMEAN)*NSCALE - FADE*0.8*rr*rr;
-  nv = n;
-  float d;
-  if (STRANDS > 0.5){
-    float n2 = (tree(strandP(p)) - NMEAN)*NSCALE;
-    d = (length(vec2(n - ISO, n2 - ISO)) - THK*1.5)/(GRAD*1.42);
-  }
-  else if (MODE < 0.5) d = (ISO - n)/GRAD;
-  else if (MODE < 1.5) d = (abs(n - ISO) - THK)/GRAD;
-  else { float k = BANDS*6.2831853; d = (abs(sin((n - ISO)*k)) - THK*4.0)/(GRAD*k); }
-  return -sminF(-d, -b, 0.03);
-}
-
-vec2 hitSphere(vec3 ro, vec3 rd, float r){
-  float b = dot(ro, rd);
-  float c = dot(ro, ro) - r*r;
-  float h = b*b - c;
-  if (h < 0.0) return vec2(-1.0);
-  h = sqrt(h);
-  return vec2(-b - h, -b + h);
-}
-
-float march(vec3 ro, vec3 rd, out float nv){
-  nv = 0.0;
-  vec2 tb = hitSphere(ro, rd, BSIZE*1.4 + 0.05);
-  if (tb.y < 0.0) return -1.0;
-  float t = max(tb.x, 0.0);
-  float tp = t;
-  bool hit = false;
-  for (int i = 0; i < MAXSTEPS; i++){
-    float d = field(ro + rd*t, nv);
-    if (d < 0.0){ hit = true; break; }
-    if (d < 0.0004) return t;
-    tp = t;
-    t += max(d*0.9, 0.0025);
-    if (t > tb.y) break;
-  }
-  if (!hit) return -1.0;
-  float lo = tp, hi = t, nvb = nv;
-  for (int k = 0; k < 6; k++){
-    float m = 0.5*(lo + hi);
-    float nm;
-    if (field(ro + rd*m, nm) < 0.0){ hi = m; nvb = nm; } else lo = m;
-  }
-  nv = nvb;
-  return hi;
-}
-
-vec3 calcNormal(vec3 p){
-  vec3 n = vec3(0.0);
-  float nv;
-  for (int i = 0; i < 4; i++){
-    vec3 e = 0.5773*(2.0*vec3(float(((i + 3) >> 1) & 1), float((i >> 1) & 1), float(i & 1)) - 1.0);
-    n += e*field(p + 0.0015*e, nv);
-  }
-  return normalize(n);
-}
-
-float occlusion(vec3 p, vec3 n){
-  float occ = 0.0, sca = 1.0, nv;
-  for (int i = 0; i < 4; i++){
-    float h = 0.015 + 0.06*float(i);
-    occ += (h - field(p + n*h, nv))*sca;
-    sca *= 0.8;
-  }
-  return clamp(1.0 - 1.6*occ, 0.0, 1.0);
-}
-
-float softShadow(vec3 ro, vec3 rd){
-  float res = 1.0, t = 0.02, nv;
-  for (int i = 0; i < 20; i++){
-    float h = field(ro + rd*t, nv);
-    res = min(res, 8.0*h/t);
-    if (res < 0.01) break;
-    t += clamp(h, 0.02, 0.2);
-    if (t > 2.6) break;
-  }
-  return clamp(res, 0.0, 1.0);
-}
-
-vec3 pal(float t){ return PAL_A + PAL_B*cos(6.2831853*(PAL_C*t + PAL_D)); }
-
-vec3 render(vec2 fc, vec2 res, vec3 cam, vec3 bg, float mt){
-  gMT3 = vec3(0.0, 0.0, mt);
-  vec2 uv = (2.0*fc - res)/min(res.x, res.y);
-  vec3 ro = cam.z*vec3(sin(cam.x)*cos(cam.y), sin(cam.y), cos(cam.x)*cos(cam.y));
-  vec3 ww = normalize(-ro);
-  vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
-  vec3 vv = cross(uu, ww);
-  vec3 rd = normalize(uv.x*uu + uv.y*vv + 2.2*ww);
-  vec3 back = bg*(1.0 - 0.07*dot(uv, uv));
-  float nv;
-  float t = march(ro, rd, nv);
-  if (t < 0.0) return back;
-  vec3 p = ro + rd*t;
-  vec3 n = calcNormal(p);
-  float ao = occlusion(p, n);
-  vec3 L = normalize(vec3(cos(LANG), 0.85, sin(LANG)));
-  float sh = softShadow(p + n*0.004, L);
-  float cv = CSCALE > 0.0 ? clamp((ctree(p) - CMEAN)*CSCALE, -1.5, 1.5) : 0.0;
-  float ct = CSHIFT + CSPREAD*mix(0.6*length(p)/BSIZE, cv + 0.5, CMIX) + 0.12*(1.0 - ao);
-  if (MODE > 1.5 && STRANDS < 0.5) ct += floor((nv - ISO)*BANDS*2.0 + 0.5)*0.137;
-  vec3 alb = pow(clamp(pal(ct), 0.0, 1.0), vec3(2.2));
-  float dif = clamp(dot(n, L), 0.0, 1.0)*sh;
-  float amb = 0.55 + 0.45*n.y;
-  float fre = pow(clamp(1.0 + dot(n, rd), 0.0, 1.0), 3.0);
-  vec3 hv = normalize(L - rd);
-  float spe = pow(clamp(dot(n, hv), 0.0, 1.0), mix(10.0, 120.0, GLOSS))*GLOSS*dif;
-  vec3 bgl = pow(bg, vec3(2.2));
-  vec3 lin = 2.1*dif*vec3(1.0, 0.95, 0.88)
-           + 0.6*amb*ao*mix(vec3(0.75, 0.82, 1.0), bgl, 0.35)
-           + 0.25*fre*ao;
-  vec3 c = alb*lin + spe*vec3(1.1);
-  c += alb*0.12*ao*clamp(0.5 - 0.5*dot(n, L), 0.0, 1.0);
-  c = c*(2.51*c + 0.03)/(c*(2.43*c + 0.59) + 0.14);
-  return pow(clamp(c, 0.0, 1.0), vec3(1.0/2.2));
-}
-`;
-
-const VS = `#version 300 es
-void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p*2.0 - 1.0, 0.0, 1.0); }`;
-const STEPS = matchMedia('(pointer: coarse)').matches ? 96 : 120;
-const fsFor = g => `#version 300 es
-precision highp float;
-uniform vec4 P[8];
-uniform vec2 uRes;
-uniform vec2 uOff;
-uniform float uFlip;
-uniform vec3 uCam;
-uniform vec3 uBg;
-uniform float uMT;
-out vec4 outColor;
-#define MAXSTEPS ${STEPS}
-${PRE}
-${E.glsl(g.t, 'tree')}
-${E.glsl(g.c, 'ctree')}
-${POST}
-void main(){
-  vec2 fc = uFlip > 0.5 ? vec2(uOff.x + gl_FragCoord.x, uRes.y - (uOff.y + gl_FragCoord.y)) : gl_FragCoord.xy;
-  outColor = vec4(render(fc, uRes, uCam, uBg, uMT), 1.0);
-}`;
-
-/* ================= Renderer: one context, program cache, offscreen framebuffer ================= */
+/* ================= Renderer (RENDER bundle) ================= */
 const fc = document.getElementById('focus');
-const GL = {gl:null, vs:null, vao:null, par:null, fbo:null, tex:null, fw:0, fh:0, cache:new Map(), tick:0, info:''};
-function glInit(){
-  const gl = fc.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false, powerPreference:'high-performance'});
-  if (!gl) return false;
-  GL.gl = gl;
-  GL.par = gl.getExtension('KHR_parallel_shader_compile');
-  GL.vs = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(GL.vs, VS); gl.compileShader(GL.vs);
-  GL.vao = gl.createVertexArray();
-  GL.fbo = gl.createFramebuffer(); GL.tex = gl.createTexture(); GL.fw = GL.fh = 0;
-  GL.cache = new Map();
-  try { const ext = gl.getExtension('WEBGL_debug_renderer_info'); GL.info = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) {}
-  return true;
-}
-const keyOf = g => E.print(g.t) + '#' + E.print(g.c);
-function programFor(g){
-  const gl = GL.gl, key = keyOf(g);
-  let e = GL.cache.get(key);
-  if (e){ e.used = ++GL.tick; return e; }
-  const fs = gl.createShader(gl.FRAGMENT_SHADER);
-  gl.shaderSource(fs, fsFor(g)); gl.compileShader(fs);
-  const prog = gl.createProgram();
-  gl.attachShader(prog, GL.vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
-  e = {key, prog, fs, state:'pending', used:++GL.tick, err:''};
-  GL.cache.set(key, e);
-  if (GL.cache.size > 30){
-    const victims = [...GL.cache.values()].filter(x => x !== e && x.state !== 'pending').sort((a, b) => a.used - b.used);
-    for (const v of victims.slice(0, GL.cache.size - 30)){ gl.deleteProgram(v.prog); gl.deleteShader(v.fs); GL.cache.delete(v.key); }
-  }
-  return e;
-}
-function ready(e){
-  if (e.state !== 'pending') return e.state === 'ready';
-  const gl = GL.gl;
-  if (GL.par && !gl.getProgramParameter(e.prog, GL.par.COMPLETION_STATUS_KHR)) return false;
-  if (!gl.getProgramParameter(e.prog, gl.LINK_STATUS)){
-    e.state = 'error'; e.err = gl.getShaderInfoLog(e.fs) || gl.getProgramInfoLog(e.prog) || 'link failed';
-    console.warn('shader error', e.err);
-    return false;
-  }
-  const U = n => gl.getUniformLocation(e.prog, n);
-  e.loc = {P:U('P'), res:U('uRes'), off:U('uOff'), flip:U('uFlip'), cam:U('uCam'), bg:U('uBg'), mt:U('uMT')};
-  e.state = 'ready';
-  return true;
-}
+const GLR = RENDER.createRenderer({engine:E, canvas:fc, coarsePointer:matchMedia('(pointer: coarse)').matches});
+const {prelude:PRE, scene:POST, noise:NOISE_GL} = RENDER.getSharedGlslBlocks();
+const THUMB_CAM = RENDER.THUMB_CAM;
+const {ZMIN, ZMAX} = RENDER;
 const uniCache = new WeakMap();
 function uniformsOf(g){ let u = uniCache.get(g); if (!u){ u = E.uniforms(g); uniCache.set(g, u); } return u; }
-function ensureFBO(w, h){
-  const gl = GL.gl;
-  if (GL.fw === w && GL.fh === h) return;
-  gl.bindTexture(gl.TEXTURE_2D, GL.tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, GL.fbo);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, GL.tex, 0);
-  GL.fw = w; GL.fh = h;
+const GL = {gl:null, info:''};
+function glInit(){
+  const ok = GLR.init();
+  GL.gl = GLR.gl;
+  GL.info = GLR.info;
+  return ok;
 }
-function drawWith(e, g, o){
-  const gl = GL.gl;
-  if (o.fbo){ ensureFBO(o.w, o.h); gl.bindFramebuffer(gl.FRAMEBUFFER, GL.fbo); } else gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, o.w, o.h);
-  gl.useProgram(e.prog); gl.bindVertexArray(GL.vao);
-  gl.uniform4fv(e.loc.P, uniformsOf(g));
-  gl.uniform2f(e.loc.res, o.fullW || o.w, o.fullH || o.h);
-  gl.uniform2f(e.loc.off, o.offX || 0, o.offY || 0);
-  gl.uniform1f(e.loc.flip, o.fbo ? 1 : 0);
-  gl.uniform3f(e.loc.cam, o.cam[0], o.cam[1], o.cam[2]);
-  gl.uniform3f(e.loc.bg, BG[0], BG[1], BG[2]);
-  gl.uniform1f(e.loc.mt, o.mt);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
-}
-function readRaw(w, h){
-  const gl = GL.gl, u8 = new Uint8Array(w*h*4);
-  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, u8);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  return u8;
-}
-function readFBO(w, h){
-  const gl = GL.gl, u8 = new Uint8Array(w*h*4);
-  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, u8);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  return new ImageData(new Uint8ClampedArray(u8.buffer), w, h);
-}
+function programFor(g){ return GLR.programFor(g); }
+function ready(e){ return GLR.ready(e); }
+function drawWith(e, g, o){ GLR.drawWith(e, g, o); }
+function readRaw(w, h){ return GLR.readRaw(w, h); }
+function readFBO(w, h){ return GLR.readFBO(w, h); }
+function syncRendererBg(){ GLR.setBackground(BG); }
 
 /* ================= State ================= */
 const $ = id => document.getElementById(id);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = matchMedia('(pointer: coarse)').matches;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
-const THUMB_CAM = [0.7, 0.38, 3.35];
 const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
 
 const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[],
@@ -432,25 +112,11 @@ function drawFocus(){
   drawWith(e, S.parent, {w:fc.width, h:fc.height, cam:[S.yaw, S.pitch, S.dist], mt:S.morphT});
   return true;
 }
-function queueThumb(g, canvas, key, size){ queue = queue.filter(q => q.key !== key); queue.push({g, canvas, key, size, tries:0}); if (GL.gl) programFor(g); }
+function queueThumb(g, canvas, key, size){ queue = RENDER.enqueueThumb(queue, key, {g, canvas, key, size, tries:0}); }
 function queueLitter(){ S.litter.forEach((k, i) => queueThumb(k.g, pups[i].cv, 'pup' + i, thumbSize)); }
 function queueShelf(){ shelfCanvases.forEach(({g, cv, k}) => queueThumb(g, cv, 'kept' + k, Math.round(76*DPR))); }
 function processQueue(){
-  for (let n = 0; n < queue.length; n++){
-    const job = queue.shift();
-    const e = programFor(job.g);
-    if (!ready(e)){
-      if (e.state === 'error'){ paintError(job.canvas, job.size); continue; }
-      queue.push(job); continue;
-    }
-    const T = job.size;
-    drawWith(e, job.g, {fbo:true, w:T, h:T, cam:THUMB_CAM, mt:S.morphT});
-    const img = readFBO(T, T);
-    if (job.canvas.width !== T){ job.canvas.width = job.canvas.height = T; }
-    job.canvas.getContext('2d').putImageData(img, 0, 0);
-    job.canvas.dataset.done = String(S.litterId);
-    return;
-  }
+  RENDER.processThumbQueue(queue, GLR, {cam:THUMB_CAM, morphT:S.morphT, litterId:S.litterId, paintError});
 }
 function paintError(cv, T){
   if (cv.width !== T){ cv.width = cv.height = T; }
@@ -645,8 +311,7 @@ function copyText(text, okMsg, selectEl){
 }
 
 /* Orbit and zoom */
-const ZMIN = 1.25, ZMAX = 8;
-function zoomBy(f){ S.distT = Math.min(ZMAX, Math.max(ZMIN, S.distT*f)); focusDirty = true; readRes(); }
+function zoomBy(f){ S.distT = RENDER.clampZoom(S.distT*f); focusDirty = true; readRes(); }
 const pts = new Map(), pinch = {active:false, d:0};
 fc.addEventListener('pointerdown', e => {
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
@@ -1156,7 +821,7 @@ new ResizeObserver(() => { if (viewer.hidden) return; if (VW.fitted) vwFit(); el
 
 /* High-resolution export: tiles rendered on the GPU, box-filtered, and streamed into a PNG
    encoder (zlib via CompressionStream), so an 8K image never needs one giant canvas. */
-const SNAP_TS = 256;
+const SNAP_TS = RENDER.SNAP_TILE_SIZE;
 function snapDims(){
   const L = Number($('snapSize').value), f = $('snapFrame').value;
   return f === 'square' ? [L, L] : f === 'wide' ? [L, Math.round(L*9/16)] : [Math.round(L*9/16), L];
@@ -1166,43 +831,8 @@ function updateSnapInfo(){
   $('snapInfo').textContent = `${W} × ${H} px · ${(W*H/1e6).toFixed(1)} megapixels · ${ss === 2 ? 4 : 1} sample${ss === 2 ? 's' : ''} per pixel`;
 }
 ['snapSize', 'snapFrame', 'snapSS'].forEach(id => $(id).addEventListener('change', updateSnapInfo));
-const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-function crc32(buf, a, b){ let c = 0xFFFFFFFF; for (let i = a; i < b; i++) c = CRC[(c ^ buf[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-function pngChunk(type, data){
-  const out = new Uint8Array(12 + data.length), dv = new DataView(out.buffer);
-  dv.setUint32(0, data.length);
-  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
-  out.set(data, 8);
-  dv.setUint32(8 + data.length, crc32(out, 4, 8 + data.length));
-  return out;
-}
-function pngStream(W, H){
-  const cs = new CompressionStream('deflate');
-  const writer = cs.writable.getWriter();
-  const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
-  dv.setUint32(0, W); dv.setUint32(4, H); ihdr[8] = 8; ihdr[9] = 2;
-  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr)];
-  const reading = (async () => {
-    const rd = cs.readable.getReader();
-    for (;;){ const {value, done} = await rd.read(); if (done) break; parts.push(pngChunk('IDAT', value)); }
-  })();
-  reading.catch(() => {});
-  return {
-    write: data => writer.write(data),
-    async close(){ await writer.close(); await reading; parts.push(pngChunk('IEND', new Uint8Array(0))); return new Blob(parts, {type:'image/png'}); },
-    abort(){ try { writer.abort(); } catch (e) {} },
-  };
-}
-function filterRows(band, W, bh){
-  const stride = W*3, out = new Uint8Array(bh*(stride + 1));
-  for (let y = 0; y < bh; y++){
-    const o = y*(stride + 1), b = y*stride;
-    out[o] = 1;
-    out[o + 1] = band[b]; out[o + 2] = band[b + 1]; out[o + 3] = band[b + 2];
-    for (let i = 3; i < stride; i++) out[o + 1 + i] = (band[b + i] - band[b + i - 3]) & 255;
-  }
-  return out;
-}
+const pngStream = RENDER.pngStream;
+const filterRows = RENDER.filterRows;
 const fmtTime = ms => { const t = Math.round(ms/1000); return t < 60 ? `${t} s` : `${Math.floor(t/60)} min ${String(t % 60).padStart(2, '0')} s`; };
 function cancelSnapshot(){ if (snap){ snap.png.abort(); snap = null; } $('snapGo').disabled = false; }
 let snapFor = null;   // genome code of the specimen the shown render belongs to
@@ -1230,14 +860,14 @@ $('snapGo').addEventListener('click', () => {
   if (!GL.gl || snap) return;
   if (typeof CompressionStream === 'undefined'){ $('snapMsg').textContent = 'This browser cannot write large PNG files. Update Safari or Chrome and try again.'; return; }
   const [W, H] = snapDims(), ss = Number($('snapSS').value), TS = SNAP_TS;
-  const cols = Math.ceil(W/TS), rows = Math.ceil(H/TS);
+  const {cols, rows, total} = RENDER.snapTileGrid(W, H, TS);
   const pvScale = Math.min(1, 2800/Math.max(W, H));
   const pv = document.createElement('canvas'); pv.width = Math.round(W*pvScale); pv.height = Math.round(H*pvScale);
   const pctx = pv.getContext('2d'); pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
   pctx.fillStyle = `rgb(${BG.map(x => Math.round(x*255)).join(',')})`; pctx.fillRect(0, 0, pv.width, pv.height);
   vwSet(pv, W, H, false);
   const tmp = document.createElement('canvas'); tmp.width = tmp.height = TS;
-  snap = {W, H, ss, TS, cols, rows, i:0, total:cols*rows, band:new Uint8Array(W*TS*3), tileImg:new ImageData(TS, TS),
+  snap = {W, H, ss, TS, cols, rows, i:0, total, band:new Uint8Array(W*TS*3), tileImg:new ImageData(TS, TS),
           g:E.cloneG(S.parent), cam:[S.yaw, S.pitch, S.dist], mt:S.morphT, pv, pctx, pvScale, tmp, png:pngStream(W, H),
           t0:performance.now(), busy:false, tag:`G${S.gen}-${E.tag(S.parent)}`, label:`G${S.gen} · ${E.tag(S.parent)}`, forKey:E.encode(S.parent)};
   snapBlob = null; snapFor = null;
@@ -1250,24 +880,14 @@ function stepSnapshot(){
   if (s.busy) return;
   const e = programFor(s.g);
   if (!ready(e)) return;
-  const R = s.TS*s.ss, n = s.ss*s.ss, t = performance.now();
+  const R = s.TS*s.ss, t = performance.now();
   while (s.i < s.total && performance.now() - t < 45){
-    const col = s.i % s.cols, row = Math.floor(s.i/s.cols);
-    const ox = col*s.TS, oy = row*s.TS;
+    const col = s.i % s.cols;
+    const {ox, oy} = RENDER.snapTileOrigin(s.i, s.cols, s.TS);
     drawWith(e, s.g, {fbo:true, w:R, h:R, fullW:s.W*s.ss, fullH:s.H*s.ss, offX:ox*s.ss, offY:oy*s.ss, cam:s.cam, mt:s.mt});
     const px = readRaw(R, R);
     const tw = Math.min(s.TS, s.W - ox), th = Math.min(s.TS, s.H - oy), td = s.tileImg.data;
-    for (let y = 0; y < th; y++){
-      for (let x = 0; x < tw; x++){
-        let r = 0, g = 0, b = 0;
-        for (let sy = 0; sy < s.ss; sy++) for (let sx = 0; sx < s.ss; sx++){
-          const k = ((y*s.ss + sy)*R + x*s.ss + sx)*4; r += px[k]; g += px[k + 1]; b += px[k + 2];
-        }
-        r = (r/n + 0.5) | 0; g = (g/n + 0.5) | 0; b = (b/n + 0.5) | 0;
-        const bi = (y*s.W + ox + x)*3; s.band[bi] = r; s.band[bi + 1] = g; s.band[bi + 2] = b;
-        const ti = (y*s.TS + x)*4; td[ti] = r; td[ti + 1] = g; td[ti + 2] = b; td[ti + 3] = 255;
-      }
-    }
+    RENDER.boxFilterTile(px, R, tw, th, ox, oy, s.W, s.band, td, s.TS, s.ss);
     s.tmp.getContext('2d').putImageData(s.tileImg, 0, 0);
     s.pctx.drawImage(s.tmp, 0, 0, tw, th, ox*s.pvScale, oy*s.pvScale, tw*s.pvScale, th*s.pvScale);
     s.i++;
@@ -1328,28 +948,24 @@ const f4 = x => (Math.round(x*10000)/10000).toFixed(4);
 function exportGLSL(){
   const g = S.parent, U = uniformsOf(g);
   const rows = []; for (let i = 0; i < 8; i++) rows.push(`  vec4(${[0, 1, 2, 3].map(j => f4(U[i*4 + j])).join(', ')})`);
-  return `// Consculpta · specimen G${S.gen} · ${E.tag(g)} (${kindOf(g)})
+  const head = `// Consculpta · specimen G${S.gen} · ${E.tag(g)} (${kindOf(g)})
 // Shape:  ${E.print(g.t)}
 // Colour: ${E.print(g.c)}
 // Paste into a new shader on shadertoy.com (Image tab). Drag to orbit.
 // Simplex noise: Ian McEwan, Ashima Arts / Stefan Gustavson (MIT). Palette: Inigo Quilez cosine palette.
 
-const vec4 P[8] = vec4[8](
-${rows.join(',\n')}
-);
-const vec3 BG = vec3(${BG.map(f4).join(', ')});
-#define MORPH ${S.morph ? '0.08' : '0.0'}
-#define MAXSTEPS 160
-${PRE}
-${E.glsl(g.t, 'tree')}
-${E.glsl(g.c, 'ctree')}
-${POST}
-void mainImage(out vec4 fragColor, in vec2 fragCoord){
-  vec2 m = iMouse.z > 0.0 ? iMouse.xy/iResolution.xy - 0.5 : vec2(0.0);
-  vec3 cam = vec3(${f4(S.yaw % (Math.PI*2))} + iTime*0.32 - m.x*6.2832, clamp(${f4(S.pitch)} + m.y*2.0, -1.25, 1.25), ${f4(S.dist)});
-  fragColor = vec4(render(fragCoord, iResolution.xy, cam, BG, iTime*MORPH), 1.0);
-}
 `;
+  return head + RENDER.buildShadertoyExport({
+    uniformRows: rows.join(',\n'),
+    bg: BG.map(f4).join(', '),
+    morph: S.morph ? '0.08' : '0.0',
+    prelude: PRE,
+    scene: POST,
+    noise: NOISE_GL,
+    treeGlsl: E.glsl(g.t, 'tree'),
+    colorGlsl: E.glsl(g.c, 'ctree'),
+    camExpr: `${f4(S.yaw % (Math.PI*2))} + iTime*0.32 - m.x*6.2832, clamp(${f4(S.pitch)} + m.y*2.0, -1.25, 1.25), ${f4(S.dist)}`,
+  });
 }
 $('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); $('glslSave').hidden = false; openSheet('glsl'); });
 $('glslCopy').addEventListener('click', () => copyText($('glslText').value, 'Shader copied. Paste it into a new shader on shadertoy.com.', $('glslText')));
@@ -1369,7 +985,7 @@ function measureThumbs(){
 }
 let resizeT = 0;
 new ResizeObserver(() => { clearTimeout(resizeT); resizeT = setTimeout(() => { setScale(scale); focusDirty = true; measureThumbs(); }, 80); }).observe($('stage'));
-function onTheme(){ BG = readBg(); focusDirty = true; queueLitter(); queueShelf(); }
+function onTheme(){ BG = readBg(); syncRendererBg(); focusDirty = true; queueLitter(); queueShelf(); }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
 const saved = store.load();
@@ -1395,7 +1011,10 @@ $('curEvery').value = String(CUR.every); $('curRole').value = CUR.role;
 initAiBreeder();
 setToggle('spin', S.spin);
 BG = readBg();
+syncRendererBg();
 breed(); syncParent(); syncLitter(); renderLog(); curStatus();
+const footerCopy = $('footerCopy');
+if (footerCopy) footerCopy.textContent = `© ${new Date().getFullYear()} carlok`;
 if (!glInit()){
   showStageError('This page needs WebGL 2. Current Safari, Chrome and Firefox all support it.');
 } else {
@@ -1408,6 +1027,4 @@ if (!glInit()){
   setScale(scale); measureThumbs(); queueLitter();
   requestAnimationFrame(frame);
 }
-const footerCopy = $('footerCopy');
-if (footerCopy) footerCopy.textContent = `© ${new Date().getFullYear()} carlok`;
 })();

@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install glslang
+        run: sudo apt-get update && sudo apt-get install -y glslang-tools
+
       - name: Run checks
         run: npm run check
 
@@ -60,11 +63,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install glslang
+        run: sudo apt-get update && sudo apt-get install -y glslang-tools
+
       - name: Run checks
         run: npm run check
 
-      - name: Build engine bundle
-        run: npm run build:engine
+      - name: Build legacy bundles
+        run: npm run build:legacy
 
       - name: Prepare static site
         run: |
