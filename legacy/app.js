@@ -1208,7 +1208,7 @@ function toast(msg, opt){
     t.appendChild(b);
   }
   toastKind = o.kind || ''; t.hidden = false;
-  armToast(o.action ? 6000 : 3600);
+  armToast(o.action ? 10000 : 3600);
 }
 function armToast(ms){ clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, ms); }
 function hideToast(){ clearTimeout(toastTimer); $('toast').hidden = true; toastKind = ''; }

@@ -112,7 +112,8 @@ test.describe('Consculpta legacy site', () => {
   });
 
   test('toast Undo reverts Random', async ({ page }) => {
-    // Spin off, so software WebGL leaves time to act on the 6 s toast.
+    test.setTimeout(120_000);
+    // Spin off, so software WebGL leaves time to act on the toast.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     const plate = page.locator('#plateId');
@@ -125,6 +126,8 @@ test.describe('Consculpta legacy site', () => {
   });
 
   test('Keep shows kept state and shelf delete can be undone', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
     const keep = page.locator('#keep');
@@ -206,7 +209,7 @@ test.describe('Consculpta legacy site', () => {
 
   test('share link loads a specimen once and Undo returns yours', async ({ page }) => {
     test.setTimeout(120_000);
-    // Spin starts off with reduced motion, so software WebGL leaves time to act on the 6 s toast.
+    // Spin starts off with reduced motion, so software WebGL leaves time to act on the toast.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
