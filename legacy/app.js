@@ -352,7 +352,7 @@ const THUMB_CAM = [0.7, 0.38, 3.35];
 const DEFAULT_CAM = {yaw:4.4434, pitch:0.3615, dist:3.55};
 const SURFACE = [24, 0, 6, 1, 2, 3, 4, 5], COLOR = [19, 21, 20], LIGHT = [22, 23];
 
-const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[],
+const S = {parent:E.startGenome(), gen:1, litter:[], litterId:0, mutation:0.35, shelf:[], kseq:0, history:[], future:[],
            spin:!reduceMotion, morph:false, morphT:0, yaw:DEFAULT_CAM.yaw, pitch:DEFAULT_CAM.pitch, dist:DEFAULT_CAM.dist, distT:DEFAULT_CAM.dist};
 const CUR = {every:3, role:'advise', since:0, busy:null, notes:[], log:[], picks:[], 
              agree:0, rounds:0, pendingAsk:false, countdown:null};
@@ -501,10 +501,34 @@ function frame(ts){
 
 /* ================= Breeding ================= */
 const kindOf = g => `${E.val(g.v, 24) ? 'strands' : E.fmtScalar(2, g.v[2])} · ${E.fmtScalar(4, g.v[4])} · ${E.size(g.t)} nodes`;
+const snapshotState = () => ({parent:E.cloneG(S.parent), gen:S.gen, litter:S.litter.map(k => ({...k, g:E.cloneG(k.g)}))});
 function pushHistory(){
-  S.history.push({parent:E.cloneG(S.parent), gen:S.gen, litter:S.litter.map(k => ({...k, g:E.cloneG(k.g)}))});
+  S.history.push(snapshotState());
   if (S.history.length > 60) S.history.shift();
+  S.future = [];
+  dismissToast('history');
+  syncHistoryButtons();
 }
+function syncHistoryButtons(){ $('undo').disabled = S.history.length === 0; $('redo').disabled = S.future.length === 0; }
+function restoreState(h){
+  cancelCountdown(); clearTimeout(editTimer); editing = false;
+  S.parent = h.parent; S.gen = h.gen; S.litter = h.litter; S.litterId++;
+  refreshAll();
+}
+function undo(){
+  const h = S.history.pop();
+  if (!h){ toast('Nothing to undo.'); return; }
+  S.future.push(snapshotState());
+  restoreState(h);
+}
+function redo(){
+  const h = S.future.pop();
+  if (!h){ toast('Nothing to redo.'); return; }
+  S.history.push(snapshotState());
+  restoreState(h);
+}
+/* Toast with an Undo button that reverts the step that was just recorded. */
+const undoToast = msg => toast(msg, {action:'Undo', onAction:undo, kind:'history'});
 function breed(aiChild){
   cancelCountdown();
   const kids = [];
@@ -546,7 +570,8 @@ function syncParent(){
   $('genomeSum').textContent = `${E.size(S.parent.t)} nodes · ${E.cost(S.parent.t)} noise · ${E.fmtScalar(4, S.parent.v[4])}`;
   $('fErr').textContent = '';
   if (document.activeElement !== $('code')) $('code').value = E.encode(S.parent);
-  $('undo').disabled = S.history.length === 0;
+  syncHistoryButtons();
+  syncKeep();
 }
 function refreshAll(){ focusDirty = true; syncParent(); syncLitter(); queueLitter(); store.save(); }
 function adopt(i, by, aiChild){
@@ -561,10 +586,16 @@ function adopt(i, by, aiChild){
   pushHistory();
   S.parent = E.cloneG(k.g); S.gen += 1;
   breed(aiChild); refreshAll();
+  pulsePlate();
+  undoToast(`${by === 'you' ? 'Adopted' : aiName() + ' adopted'} offspring ${i + 1} · ${E.tag(S.parent)} as G${S.gen}.`);
   if (by === 'you' && CUR.every > 0 && CUR.since >= CUR.every && usable()) CUR.pendingAsk = true;
   curStatus();
 }
 
+function pulsePlate(){
+  const el = document.querySelector('.plate');
+  el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+}
 let editTimer = 0, editing = false;
 function editScalar(i, v){
   if (!editing){ pushHistory(); editing = true; }
@@ -576,8 +607,9 @@ function editScalar(i, v){
   $('plateKind').textContent = kindOf(S.parent);
   $('strip').style.background = E.palCSS(S.parent.v);
   $('code').value = E.encode(S.parent);
+  syncKeep();
   clearTimeout(editTimer);
-  editTimer = setTimeout(() => { editing = false; breed(); syncLitter(); queueLitter(); store.save(); $('undo').disabled = false; }, 650);
+  editTimer = setTimeout(() => { editing = false; breed(); syncLitter(); queueLitter(); store.save(); }, 650);
 }
 $('fApply').addEventListener('click', () => {
   let t, c;
@@ -588,27 +620,22 @@ $('fApply').addEventListener('click', () => {
   const st = E.stats(g);
   if (!st.ok){ $('fErr').textContent = st.why === 'flat' ? 'This formula is constant inside the block, so there is no surface.' : 'This formula changes too fast to render cleanly. Lower some frequencies.'; return; }
   E.fitIso(g);
-  pushHistory(); S.parent = g; breed(); refreshAll(); toast('Formula applied.');
+  pushHistory(); S.parent = g; breed(); refreshAll(); undoToast('Formula applied.');
 });
 
 $('resetGenome').addEventListener('click', () => {
   cancelCountdown(); pushHistory();
   S.parent = E.startGenome(); S.gen = 1;
-  breed(); refreshAll(); toast('Back to the starting specimen. Undo brings yours back.');
+  breed(); refreshAll(); undoToast('Back to the starting specimen.');
 });
 $('resetGenes').addEventListener('click', () => {
   cancelCountdown(); pushHistory();
   const g = E.cloneG(S.parent); g.v = E.startGenome().v.slice(); E.fitIso(g);
-  S.parent = g; breed(); refreshAll(); toast('Genes back to their defaults; the formula is unchanged.');
+  S.parent = g; breed(); refreshAll(); undoToast('Genes back to their defaults; the formula is unchanged.');
 });
-$('undo').addEventListener('click', () => {
-  const h = S.history.pop();
-  if (!h){ toast('Nothing to undo.'); return; }
-  cancelCountdown();
-  S.parent = h.parent; S.gen = h.gen; S.litter = h.litter; S.litterId++;
-  refreshAll();
-});
-$('random').addEventListener('click', () => { pushHistory(); S.parent = E.randomGenome(); S.gen = 1; breed(); refreshAll(); });
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('random').addEventListener('click', () => { pushHistory(); S.parent = E.randomGenome(); S.gen = 1; breed(); refreshAll(); undoToast(`Random specimen ${E.tag(S.parent)}.`); });
 $('reroll').addEventListener('click', () => { cancelCountdown(); breed(); syncLitter(); queueLitter(); });
 $('rate').addEventListener('input', e => { S.mutation = e.target.value/100; $('rateOut').textContent = e.target.value + '%'; });
 $('rate').addEventListener('change', () => { breed(); syncLitter(); queueLitter(); store.save(); });
@@ -617,6 +644,7 @@ $('spin').addEventListener('click', () => { S.spin = !S.spin; setToggle('spin', 
 $('morph').addEventListener('click', () => { S.morph = !S.morph; setToggle('morph', S.morph); focusDirty = true; if (!S.morph) queueLitter(); });
 
 /* Shelf */
+const SHELF_MAX = 12;
 let shelfCanvases = [];
 function renderShelf(){
   const el = $('shelf'); el.innerHTML = ''; shelfCanvases = [];
@@ -625,31 +653,53 @@ function renderShelf(){
     const wrap = document.createElement('div'); wrap.className = 'kept';
     const K = Math.round(76*DPR);
     wrap.innerHTML = `<button class="kept-open" type="button" aria-label="Load kept specimen ${item.k}"><canvas width="${K}" height="${K}"></canvas><span>${item.k} · ${E.tag(g)}</span></button><button class="kept-del" type="button" aria-label="Remove ${item.k} from the shelf">×</button>`;
-    wrap.querySelector('.kept-open').addEventListener('click', () => { pushHistory(); S.parent = E.cloneG(g); breed(); refreshAll(); toast(`Loaded ${item.k}.`); });
-    wrap.querySelector('.kept-del').addEventListener('click', () => { S.shelf = S.shelf.filter(x => x !== item); renderShelf(); store.save(); });
+    wrap.querySelector('.kept-open').addEventListener('click', () => { pushHistory(); S.parent = E.cloneG(g); breed(); refreshAll(); undoToast(`Loaded ${item.k}.`); });
+    wrap.querySelector('.kept-del').addEventListener('click', () => {
+      const at = S.shelf.indexOf(item);
+      S.shelf = S.shelf.filter(x => x !== item); renderShelf(); store.save();
+      toast(`Removed ${item.k} from the shelf.`, {action:'Undo', onAction:() => {
+        if (S.shelf.some(x => x.code === item.code)) return;
+        S.shelf.splice(Math.min(at, S.shelf.length), 0, item);
+        if (S.shelf.length > SHELF_MAX) S.shelf.length = SHELF_MAX;
+        renderShelf(); store.save();
+      }});
+    });
     el.appendChild(wrap);
     shelfCanvases.push({g, cv:wrap.querySelector('canvas'), k:item.k});
   });
   $('shelfEmpty').hidden = S.shelf.length > 0;
   $('shelf').hidden = S.shelf.length === 0;
-  $('shelfCount').textContent = `${S.shelf.length} of 12`;
+  $('shelfCount').textContent = `${S.shelf.length} of ${SHELF_MAX}`;
+  syncKeep();
   if (GL.gl) queueShelf();
+}
+/* Keep reads "Kept · K4" while the current parent is already on the shelf. */
+function syncKeep(){
+  const code = E.encode(S.parent), dup = S.shelf.find(x => x.code === code), b = $('keep');
+  b.textContent = dup ? `Kept · ${dup.k}` : 'Keep';
+  b.classList.toggle('is-kept', !!dup);
 }
 $('keep').addEventListener('click', () => {
   const code = E.encode(S.parent);
   const dup = S.shelf.find(x => x.code === code);
   if (dup){ toast(`Already on the shelf as ${dup.k}.`); return; }
   const first = S.shelf.length === 0;
-  S.kseq += 1; S.shelf.unshift({k:'K' + S.kseq, code});
-  if (S.shelf.length > 12) S.shelf.pop();
+  S.kseq += 1;
+  const item = {k:'K' + S.kseq, code};
+  S.shelf.unshift(item);
+  const dropped = S.shelf.length > SHELF_MAX ? S.shelf.pop() : null;
   renderShelf(); store.save();
-  toast(first ? `Kept as K${S.kseq}. From the next litter on, offspring 5 and 6 graft in branches from the shelf.` : `Kept as K${S.kseq}.`);
+  if (dropped){
+    toast(`Kept as ${item.k}. The shelf holds ${SHELF_MAX}, so ${dropped.k} was dropped.`, {action:'Undo', onAction:() => {
+      S.shelf = S.shelf.filter(x => x !== item); S.shelf.push(dropped); renderShelf(); store.save();
+    }});
+  } else toast(first ? `Kept as ${item.k}. From the next litter on, offspring 5 and 6 graft in branches from the shelf.` : `Kept as ${item.k}.`);
 });
 $('copyCode').addEventListener('click', () => copyText(E.encode(S.parent), 'Genome code copied.', $('code')));
 $('loadCode').addEventListener('click', () => {
   const g = E.decode($('code').value);
   if (!g){ toast('That is not a genome code. It starts with nsb3.'); return; }
-  pushHistory(); S.parent = g; breed(); refreshAll(); toast('Genome loaded.');
+  pushHistory(); S.parent = g; breed(); refreshAll(); undoToast('Genome loaded.');
 });
 function copyText(text, okMsg, selectEl){
   const fallback = () => { if (selectEl){ selectEl.focus(); selectEl.select(); } toast('Copy was blocked here. The text is selected; copy it with ⌘C or Ctrl+C.'); };
@@ -1094,6 +1144,29 @@ function closeSheet(){ sheet.hidden = true; cancelSnapshot(); if (sheetReturn &&
 $('sheetClose').addEventListener('click', closeSheet);
 sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+/* Page-wide shortcuts. Skipped while typing, while a sheet or dialog is open, and for keys the stage already used. */
+const keys = $('keys');
+$('keysOpen').addEventListener('click', () => keys.showModal());
+$('keysClose').addEventListener('click', () => keys.close());
+keys.addEventListener('click', e => { if (e.target === keys) keys.close(); });
+const typing = el => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+document.addEventListener('keydown', e => {
+  if (e.defaultPrevented || e.altKey || typing(e.target) || !sheet.hidden || keys.open) return;
+  const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  let act = null;
+  if (mod){
+    if (k === 'z') act = e.shiftKey ? redo : undo;
+    else if (k === 'y' && e.ctrlKey) act = redo;
+  } else if (e.key === '?') act = () => keys.showModal();
+  else if (/^[1-6]$/.test(e.key)) act = () => adopt(Number(e.key) - 1, 'you');
+  else if (k === 'z') act = e.shiftKey ? redo : undo;
+  else if (!e.shiftKey){
+    act = {n:() => $('reroll').click(), k:() => $('keep').click(), r:() => $('random').click(),
+           s:() => $('spin').click(), m:() => $('morph').click()}[k] || null;
+  }
+  if (!act) return;
+  e.preventDefault(); act();
+});
 /* Zoomable preview: z is screen px per image px; the stage element is sized in image px and transformed. */
 const VW = {W:1, H:1, z:1, tx:0, ty:0, fitted:true, pts:new Map(), pinch:null, url:null};
 const viewer = $('viewer');
@@ -1369,8 +1442,27 @@ $('glsl').addEventListener('click', () => { $('glslText').value = exportGLSL(); 
 $('glslCopy').addEventListener('click', () => copyText($('glslText').value, 'Shader copied. Paste it into a new shader on shadertoy.com.', $('glslText')));
 $('glslSave').addEventListener('click', () => saveFile(`consculpta-G${S.gen}-${E.tag(S.parent)}.txt`, $('glslText').value, $('glslSave')));
 
-let toastTimer = 0;
-function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3600); }
+let toastTimer = 0, toastKind = '';
+/* opt.action adds a button (e.g. Undo) and keeps the toast up longer; hovering or focusing it holds it open. */
+function toast(msg, opt){
+  const t = $('toast'), o = opt || {};
+  const text = document.createElement('span'); text.textContent = msg;
+  t.replaceChildren(text);
+  if (o.action){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = o.action;
+    b.addEventListener('click', () => { hideToast(); o.onAction(); });
+    t.appendChild(b);
+  }
+  toastKind = o.kind || ''; t.hidden = false;
+  armToast(o.action ? 6000 : 3600);
+}
+function armToast(ms){ clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, ms); }
+function hideToast(){ clearTimeout(toastTimer); $('toast').hidden = true; toastKind = ''; }
+function dismissToast(kind){ if (toastKind === kind) hideToast(); }
+$('toast').addEventListener('pointerenter', () => clearTimeout(toastTimer));
+$('toast').addEventListener('pointerleave', () => armToast(2500));
+$('toast').addEventListener('focusin', () => clearTimeout(toastTimer));
+$('toast').addEventListener('focusout', () => armToast(2500));
 
 /* ================= Boot ================= */
 function showStageError(text){ const m = $('stageMsg'); m.innerHTML = '<p></p>'; m.querySelector('p').textContent = text; m.hidden = false; }
@@ -1390,7 +1482,7 @@ const saved = store.load();
 if (saved){
   const g = E.decode(saved.p); if (g){ S.parent = g; S.gen = saved.gen || 1; }
   if (typeof saved.m === 'number'){ S.mutation = saved.m; $('rate').value = Math.round(saved.m*100); $('rateOut').textContent = Math.round(saved.m*100) + '%'; }
-  if (Array.isArray(saved.shelf)) S.shelf = saved.shelf.filter(x => x && E.decode(x.code)).slice(0, 12);
+  if (Array.isArray(saved.shelf)) S.shelf = saved.shelf.filter(x => x && E.decode(x.code)).slice(0, SHELF_MAX);
   S.kseq = saved.kseq || S.shelf.length;
   if (saved.cur){
     CUR.every = [0, 2, 3, 5].includes(saved.cur.every) ? saved.cur.every : 3;

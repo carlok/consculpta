@@ -91,4 +91,59 @@ test.describe('Consculpta legacy site', () => {
     await page.goto('/consculpta/');
     await expect(page.locator('#bigView')).toBeHidden();
   });
+
+  test('number keys adopt, Z undoes and Shift+Z redoes', async ({ page }) => {
+    await page.goto('/consculpta/');
+    const plate = page.locator('#plateId');
+    await expect(plate).toHaveText('G1 · 74C8');
+    const tag = (await page.locator('#pup-1 .pup-id').textContent()).split(' · ')[1];
+
+    await page.keyboard.press('2');
+    await expect(plate).toHaveText(`G2 · ${tag}`);
+    await expect(page.locator('#toast')).toContainText('Adopted offspring 2');
+
+    await page.keyboard.press('z');
+    await expect(plate).toHaveText('G1 · 74C8');
+    await expect(page.locator('#redo')).toBeEnabled();
+
+    await page.keyboard.press('Shift+Z');
+    await expect(plate).toHaveText(`G2 · ${tag}`);
+    await expect(page.locator('#redo')).toBeDisabled();
+  });
+
+  test('toast Undo reverts Random', async ({ page }) => {
+    await page.goto('/consculpta/');
+    const plate = page.locator('#plateId');
+    await expect(plate).toHaveText('G1 · 74C8');
+    await page.locator('#random').click();
+    await expect(plate).not.toHaveText('G1 · 74C8');
+    await page.locator('#toast .toast-act').click();
+    await expect(plate).toHaveText('G1 · 74C8');
+    await expect(page.locator('#toast')).toBeHidden();
+  });
+
+  test('Keep shows kept state and shelf delete can be undone', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const keep = page.locator('#keep');
+    await keep.click();
+    await expect(keep).toHaveText('Kept · K1');
+    await expect(page.locator('#shelf .kept')).toHaveCount(1);
+
+    await page.locator('#shelf .kept-del').click();
+    await expect(page.locator('#shelf .kept')).toHaveCount(0);
+    await expect(keep).toHaveText('Keep');
+    await page.locator('#toast .toast-act').click();
+    await expect(page.locator('#shelf .kept')).toHaveCount(1);
+    await expect(keep).toHaveText('Kept · K1');
+  });
+
+  test('? opens the shortcuts list and Escape closes it', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await page.keyboard.press('?');
+    await expect(page.locator('#keys')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#keys')).toBeHidden();
+  });
 });

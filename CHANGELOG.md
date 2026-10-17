@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Redo** button next to Undo; any new step clears the redo stack.
+- Toasts can carry an **Undo** button (6 s, held open on hover or focus). Adopting, Random, Reset genome, Reset genes, Apply formulas, loading a genome code or a kept specimen, and removing a shelf item all offer it.
+- Keyboard shortcuts: `1`–`6` adopt, `N` new litter, `K` keep, `Z` / `⌘Z` undo, `⇧Z` / `⇧⌘Z` / `Ctrl+Y` redo, `R` random, `S` spin, `M` morph, `?` lists them (also via **Keyboard shortcuts** in the footer).
+- Adopting pulses the specimen plate and announces the new parent in the toast region.
+- **Keep** reads "Kept · K4" while the current parent is already on the shelf. A full shelf says which item it dropped, with Undo.
 - README: About (with footer links), How to use, Privacy and API keys, licence footer.
 
 ### Fixed

@@ -22,7 +22,8 @@ Open the [live site](https://carlok.github.io/consculpta/) in a WebGL 2 browser.
 3. **Genome** — Open the genome panel to edit the formula, scalars, and palette, or paste a genome code and **Load**.
 4. **Export** — **Shader code** opens a sheet with a Shadertoy-ready GLSL export; **Snapshot** renders a high-resolution PNG from the current camera.
 5. **Large view** — On wide screens, **Large view** toggles a wider main stage versus giving the litter grid more room in the layout. On a first visit with no saved preference, it starts **off**. Your choice is stored in this browser (`localStorage` key `nsb.big`).
-6. **AI breeder** (optional) — Off by default. Turn it on to let a configured model rank litters or suggest offspring. You choose the provider (Anthropic API or an OpenAI-compatible endpoint), model, and API key in the settings panel.
+6. **Undo and shortcuts** — **Undo** / **Redo** step through parents; most actions also show an Undo button in the toast. Press `?` for the keyboard shortcuts (`1`–`6` adopt, `N` new litter, `K` keep, `Z` undo).
+7. **AI breeder** (optional) — Off by default. Turn it on to let a configured model rank litters or suggest offspring. You choose the provider (Anthropic API or an OpenAI-compatible endpoint), model, and API key in the settings panel.
 
 ## Privacy and API keys
 
