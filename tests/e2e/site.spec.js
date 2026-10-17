@@ -167,6 +167,25 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#curStatus')).toHaveText('');
   });
 
+  test('wheel scrolls the page until the stage is engaged, then zooms', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(page.locator('#stageBusy')).toBeHidden();
+    const box = await page.locator('#focus').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+    await page.mouse.wheel(0, 200);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await expect(page.locator('#stageTip')).toBeVisible();
+    await expect(page.locator('#readRes')).toContainText('zoom 1.00×');
+
+    await page.locator('#stage').focus();
+    const before = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, 200);
+    await expect(page.locator('#readRes')).not.toContainText('zoom 1.00×');
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
+
   test('orbit hint retires after the first drag and stays retired', async ({ page }) => {
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');

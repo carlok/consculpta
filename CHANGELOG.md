@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Formula editors flag parse errors as you type (`aria-invalid`, message in the status line) and apply with `⌘/Ctrl+Enter`.
 - Engine exports `DISCRETE`, `STRANDS_ON` and `STRANDS_OFF`.
 - Stage overlay holds icon toggles for Spin, Morph and Fullscreen next to zoom and a camera-reset icon; the action bar keeps specimen actions, export, and Large view.
+- Stage shows "compiling formula…" over the old picture while a new parent's shader compiles (after 180 ms), and a clear message if it fails.
+- Two fingers dragged up or down tilt the camera on touch screens.
 - The orbit hint fades after your first orbit or zoom and stays hidden on this device (`nsb.hinted`).
 - On phones the mutation label sits as a chip on each thumbnail so the tag is no longer truncated; zoom buttons and shelf remove buttons are larger on touch screens.
 - README: About (with footer links), How to use, Privacy and API keys, licence footer.
@@ -37,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The mouse wheel over the stage scrolls the page unless the stage is engaged (clicked or focused, fullscreen) or ⌘/Ctrl is held; a tip explains this. Trackpad pinch still zooms.
+- Spin and morph stop drawing while the stage is scrolled out of view, leaving the GPU to litter thumbnails.
 - AI breeder moves below the shelf and genome; when off it shows one line instead of a status, a button and a paragraph that all said "off".
 - Shorter lede on phones; the GPU name moves from the header to the footer.
 - Offspring buttons announce their tag and mutation label to screen readers.

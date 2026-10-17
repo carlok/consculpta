@@ -15,7 +15,7 @@ Each sculpture is the region where a formula over [3D simplex noise](https://en.
 
 ## How to use
 
-Open the [live site](https://carlok.github.io/consculpta/) in a WebGL 2 browser. The main stage shows the current parent specimen; drag to orbit and scroll to zoom.
+Open the [live site](https://carlok.github.io/consculpta/) in a WebGL 2 browser. The main stage shows the current parent specimen; drag to orbit; click the stage (or hold ⌘/Ctrl) and scroll to zoom, or pinch on a trackpad or touch screen. On touch screens, drag two fingers up or down to tilt.
 
 1. **Breed** — Each litter has six offspring. Click one to adopt it as the new parent (generation counter increases). Use **New litter** to regenerate the litter without changing the parent, or adjust **Mutation** and breed again after adopting.
 2. **Kept specimens** — Press **Keep** to pin the current parent on the shelf. When the shelf is non-empty, some offspring crossbreed with a kept formula.

@@ -19,7 +19,7 @@
 
   <main class="bench big" id="bench">
     <section class="col" aria-label="Current specimen">
-      <div class="stage" id="stage" tabindex="0" aria-label="Current specimen. Drag or use the arrow keys to orbit.">
+      <div class="stage" id="stage" tabindex="0" aria-label="Current specimen. Drag or use the arrow keys to orbit; plus, minus and 0 zoom and reset.">
         <canvas id="focus"></canvas>
         <div class="plate"><span class="id" id="plateId">G1 · ----</span><span class="kind" id="plateKind">solid · sphere</span></div>
         <span class="hint mono">drag to orbit · scroll or pinch to zoom</span>
@@ -32,6 +32,8 @@
           <button class="btn zb" id="morph" type="button" aria-pressed="false" aria-label="Morph" title="Morph (M)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12c3-6 6-6 9 0s6 6 9 0"/></svg></button>
           <button class="btn zb" id="zFull" type="button" aria-pressed="false" aria-label="Fullscreen" title="Fullscreen" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="fs-off" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="fs-on" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
         </div>
+        <div class="stage-busy" id="stageBusy" role="status" hidden><span class="mono"></span></div>
+        <div class="stage-tip mono" id="stageTip" aria-hidden="true" hidden></div>
         <div class="stage-msg" id="stageMsg" hidden></div>
       </div>
       <div class="readout mono"><span id="readRes">—</span><span id="readFrame">—</span></div>

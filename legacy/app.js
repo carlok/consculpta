@@ -469,11 +469,26 @@ function setScale(s){
 function drawFocus(){
   const e = programFor(S.parent);
   if (!ready(e)){
-    $('readFrame').textContent = e.state === 'error' ? 'shader error' : 'compiling formula…';
+    const err = e.state === 'error';
+    $('readFrame').textContent = err ? 'shader error' : 'compiling formula…';
+    stageBusy(err ? 'This formula did not compile. Undo goes back.' : 'compiling formula…', err);
     return false;
   }
+  stageBusy('');
   drawWith(e, S.parent, {w:fc.width, h:fc.height, cam:[S.yaw, S.pitch, S.dist], mt:S.morphT});
   return true;
+}
+/* Overlay while the parent's shader compiles (after a short grace period, so fast compiles don't flash) or failed. */
+let busySince = 0;
+function stageBusy(text, now){
+  const el = $('stageBusy');
+  if (!text){ busySince = 0; el.hidden = true; return; }
+  const t = performance.now();
+  if (!busySince) busySince = t;
+  if (!now && t - busySince < 180) return;
+  el.querySelector('span').textContent = text;
+  el.classList.toggle('err', !!now);
+  el.hidden = false;
 }
 function queueThumb(g, canvas, key, size){ queue = queue.filter(q => q.key !== key); queue.push({g, canvas, key, size, tries:0}); if (GL.gl) programFor(g); }
 function queueLitter(){
@@ -513,15 +528,24 @@ function markDone(cv){
 }
 function litterRendered(){ /* every litter canvas painted for the current litter */ return pups.every(p => p.cv.dataset.done === String(S.litterId)) && !queue.some(q => q.key.startsWith('pup')); }
 
+/* Spin and morph only draw while the stage is on screen. */
+let stageOnScreen = true;
+new IntersectionObserver(es => {
+  const on = es[es.length - 1].isIntersecting;
+  if (on && !stageOnScreen) focusDirty = true;
+  stageOnScreen = on;
+}).observe($('stage'));
 function frame(ts){
   const dt = lastTs ? Math.min(120, ts - lastTs) : 16; lastTs = ts;
   if (GL.gl && !glLost){
     const zooming = Math.abs(S.distT - S.dist) > 0.002;
     if (zooming){ S.dist += (S.distT - S.dist)*Math.min(1, dt*0.014); if (Math.abs(S.distT - S.dist) <= 0.002){ S.dist = S.distT; focusDirty = true; } }
     const moving = S.spin || S.morph || drag.active || keyHeld > 0 || zooming || pinch.active;
-    if (S.spin && !drag.active && !snap) S.yaw += dt*0.00032;
-    if (S.morph && !snap) S.morphT += dt*0.00008;
+    const visible = stageOnScreen || !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (S.spin && !drag.active && !snap && visible) S.yaw += dt*0.00032;
+    if (S.morph && !snap && visible) S.morphT += dt*0.00008;
     if (snap){ /* the export has the GPU */ }
+    else if (!visible){ /* stage scrolled away: leave the GPU to thumbnails */ }
     else if (moving){
       emaDt = emaDt*0.88 + dt*0.12;
       if (++adaptN > 14){
@@ -782,13 +806,14 @@ function retireHint(){
   const h = document.querySelector('.hint'); h.classList.add('gone'); setTimeout(() => { h.hidden = true; }, 700);
   try { localStorage.setItem('nsb.hinted', '1'); } catch (e) {}
 }
-const pts = new Map(), pinch = {active:false, d:0};
+const stageEl = $('stage');
+const pts = new Map(), pinch = {active:false, d:0, my:0};
 fc.addEventListener('pointerdown', e => {
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
   try { fc.setPointerCapture(e.pointerId); } catch (_) {}
   if (pts.size === 2){
     const [a, b] = [...pts.values()];
-    pinch.active = true; pinch.d = Math.hypot(a.x - b.x, a.y - b.y) || 1; drag.active = false;
+    pinch.active = true; pinch.d = Math.hypot(a.x - b.x, a.y - b.y) || 1; pinch.my = (a.y + b.y)/2; drag.active = false;
   } else {
     drag.active = true; drag.x = e.clientX; drag.y = e.clientY; drag.touch = e.pointerType === 'touch';
     retireHint();
@@ -799,8 +824,10 @@ fc.addEventListener('pointermove', e => {
   const p = pts.get(e.pointerId); if (!p) return;
   p.x = e.clientX; p.y = e.clientY;
   if (pinch.active && pts.size >= 2){
-    const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1, my = (a.y + b.y)/2;
     zoomBy(pinch.d/d); pinch.d = d;
+    /* Two fingers moving together vertically tilt the camera (one-finger vertical drags scroll the page on touch). */
+    S.pitch = Math.min(1.25, Math.max(-1.25, S.pitch + (my - pinch.my)*0.008)); pinch.my = my;
     return;
   }
   if (!drag.active) return;
@@ -814,9 +841,20 @@ const endDrag = e => {
   if (!pts.size){ drag.active = false; fc.classList.remove('grabbing'); focusDirty = true; }
 };
 fc.addEventListener('pointerup', endDrag); fc.addEventListener('pointercancel', endDrag); fc.addEventListener('lostpointercapture', endDrag);
+/* The wheel zooms only once the stage is engaged (focused by a click or Tab, fullscreen) or with ⌘/Ctrl held,
+   which also covers trackpad pinch. Otherwise it scrolls the page and a tip says how to zoom. */
+const MOD = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl';
+let tipTimer = 0;
 $('stage').addEventListener('wheel', e => {
   if (e.target.closest('.zoomer')) return;
+  const engaged = stageEl.contains(document.activeElement) || !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (!engaged && !e.ctrlKey && !e.metaKey){
+    const tip = $('stageTip'); tip.textContent = `Click the stage or hold ${MOD} to zoom`; tip.hidden = false;
+    clearTimeout(tipTimer); tipTimer = setTimeout(() => { tip.hidden = true; }, 1400);
+    return;
+  }
   e.preventDefault();
+  $('stageTip').hidden = true;
   zoomBy(Math.exp(e.deltaY*(e.ctrlKey ? 0.01 : 0.0015)));
 }, {passive:false});
 $('zIn').addEventListener('click', () => zoomBy(1/1.3));
@@ -833,7 +871,6 @@ $('stage').addEventListener('keydown', e => {
   if (used){ e.preventDefault(); retireHint(); keyHeld = 1; focusDirty = true; clearTimeout(keyTimer); keyTimer = setTimeout(() => { keyHeld = 0; focusDirty = true; }, 220); }
 });
 /* Fullscreen (desktop browsers) */
-const stageEl = $('stage');
 const fsEnabled = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 $('zFull').hidden = !fsEnabled;
 $('zFull').addEventListener('click', async () => {
