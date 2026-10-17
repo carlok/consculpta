@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- README: About (with footer links), How to use, Privacy and API keys, licence footer.
+
+### Fixed
+
+- E2E first-visit test waits for full legacy app bootstrap (footer + default specimen) so slow CI WebGL init does not hit the 60s test timeout.
+
 ### Changed
 
 - **Large view** defaults to off on first visit (`nsb.big` unset); only `nsb.big === '1'` restores the previous large layout.
