@@ -598,7 +598,7 @@ function syncLitter(){
     p.badge.hidden = !k.aiPick; p.badge.textContent = '★ ' + (k.pickBy || 'AI');
     p.btn.classList.toggle('picked', !!k.aiPick);
     p.btn.title = E.print(k.g.t);
-    p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}${k.aiPick ? `, ${k.pickBy || 'AI'}’s favourite` : ''}${k.by === 'ai' ? `, written by ${k.label}` : ''}`);
+    p.btn.setAttribute('aria-label', `Adopt offspring ${i + 1}, ${E.tag(k.g)}${k.label && k.by !== 'ai' ? `, ${k.label}` : ''}${k.aiPick ? `, ${k.pickBy || 'AI'}’s favourite` : ''}${k.by === 'ai' ? `, written by ${k.label}` : ''}`);
   });
 }
 function syncParent(){
@@ -771,7 +771,17 @@ function copyText(text, okMsg, selectEl){
 
 /* Orbit and zoom */
 const ZMIN = 1.25, ZMAX = 8;
-function zoomBy(f){ S.distT = Math.min(ZMAX, Math.max(ZMIN, S.distT*f)); focusDirty = true; readRes(); }
+function zoomBy(f){ S.distT = Math.min(ZMAX, Math.max(ZMIN, S.distT*f)); focusDirty = true; readRes(); retireHint(); }
+/* The orbit hint goes away after the first orbit or zoom, and stays away on this device. */
+let hinted = false;
+try { hinted = localStorage.getItem('nsb.hinted') === '1'; } catch (e) {}
+document.querySelector('.hint').hidden = hinted;
+function retireHint(){
+  if (hinted) return;
+  hinted = true;
+  const h = document.querySelector('.hint'); h.classList.add('gone'); setTimeout(() => { h.hidden = true; }, 700);
+  try { localStorage.setItem('nsb.hinted', '1'); } catch (e) {}
+}
 const pts = new Map(), pinch = {active:false, d:0};
 fc.addEventListener('pointerdown', e => {
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
@@ -781,6 +791,7 @@ fc.addEventListener('pointerdown', e => {
     pinch.active = true; pinch.d = Math.hypot(a.x - b.x, a.y - b.y) || 1; drag.active = false;
   } else {
     drag.active = true; drag.x = e.clientX; drag.y = e.clientY; drag.touch = e.pointerType === 'touch';
+    retireHint();
   }
   fc.classList.add('grabbing');
 });
@@ -819,7 +830,7 @@ $('stage').addEventListener('keydown', e => {
   else if (k === '+' || k === '=') zoomBy(1/1.3); else if (k === '-' || k === '_') zoomBy(1.3);
   else if (k === '0') resetCamera();
   else used = false;
-  if (used){ e.preventDefault(); keyHeld = 1; focusDirty = true; clearTimeout(keyTimer); keyTimer = setTimeout(() => { keyHeld = 0; focusDirty = true; }, 220); }
+  if (used){ e.preventDefault(); retireHint(); keyHeld = 1; focusDirty = true; clearTimeout(keyTimer); keyTimer = setTimeout(() => { keyHeld = 0; focusDirty = true; }, 220); }
 });
 /* Fullscreen (desktop browsers) */
 const stageEl = $('stage');
@@ -831,7 +842,7 @@ $('zFull').addEventListener('click', async () => {
     else await (stageEl.requestFullscreen ? stageEl.requestFullscreen() : stageEl.webkitRequestFullscreen());
   } catch (e) { toast('Fullscreen isn’t available in this view.'); }
 });
-const onFs = () => { const on = !!(document.fullscreenElement || document.webkitFullscreenElement); $('zFull').textContent = on ? 'Exit fullscreen' : 'Fullscreen'; focusDirty = true; };
+const onFs = () => { const on = !!(document.fullscreenElement || document.webkitFullscreenElement); setToggle('zFull', on); $('zFull').title = on ? 'Exit fullscreen' : 'Fullscreen'; focusDirty = true; };
 document.addEventListener('fullscreenchange', onFs); document.addEventListener('webkitfullscreenchange', onFs);
 /* Large view */
 function setBig(on){
@@ -899,7 +910,7 @@ function curStatus(text){
   const el = $('curStatus');
   if (text){ el.textContent = text; return; }
   const why = aiReason();
-  if (why === 'off'){ el.textContent = 'off'; return; }
+  if (why === 'off'){ el.textContent = ''; return; }
   if (CUR.busy){ el.textContent = `looking at generation ${S.gen + 1}…`; return; }
   if (why){ el.textContent = 'not set up · see model settings'; return; }
   const agree = CUR.rounds ? ` · you agreed ${CUR.agree} of ${CUR.rounds}` : '';

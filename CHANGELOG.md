@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Genome editor: Strands, Surface, Contours and Block use segmented choices instead of continuous sliders. Thickness, Contours and Surface dim (with the reason in a tooltip and for screen readers) when the current surface does not use them; Surface genes are reordered so related ones sit together.
 - Formula editors flag parse errors as you type (`aria-invalid`, message in the status line) and apply with `⌘/Ctrl+Enter`.
 - Engine exports `DISCRETE`, `STRANDS_ON` and `STRANDS_OFF`.
+- Stage overlay holds icon toggles for Spin, Morph and Fullscreen next to zoom and a camera-reset icon; the action bar keeps specimen actions, export, and Large view.
+- The orbit hint fades after your first orbit or zoom and stays hidden on this device (`nsb.hinted`).
+- On phones the mutation label sits as a chip on each thumbnail so the tag is no longer truncated; zoom buttons and shelf remove buttons are larger on touch screens.
 - README: About (with footer links), How to use, Privacy and API keys, licence footer.
 
 ### Fixed
@@ -34,6 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- AI breeder moves below the shelf and genome; when off it shows one line instead of a status, a button and a paragraph that all said "off".
+- Shorter lede on phones; the GPU name moves from the header to the footer.
+- Offspring buttons announce their tag and mutation label to screen readers.
 - **Large view** defaults to off on first visit (`nsb.big` unset); only `nsb.big === '1'` restores the previous large layout.
 - Default parent specimen is the maintainer showcase (G5 · 39E1 export): pinned `nsb3` code, formulas in `docs/fixtures/default-specimen-39E1.glsl`, initial camera from that export. **Reset genome** returns to this specimen (via `startGenome()`).
 

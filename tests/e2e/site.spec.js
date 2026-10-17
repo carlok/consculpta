@@ -39,7 +39,7 @@ test.describe('Consculpta legacy site', () => {
 
     await expect(page.locator('#curOn')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#curOn')).toHaveText('Off');
-    await expect(page.locator('#curOffNote')).toContainText('Off.');
+    await expect(page.locator('#curOffNote')).toContainText('Optional.');
 
     await expect(page.locator('#bigView')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#bench')).not.toHaveClass(/big/);
@@ -145,6 +145,42 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#keys')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#keys')).toBeHidden();
+  });
+
+  test('stage overlay holds view toggles; AI breeder sits after the shelf', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const spin = page.locator('#stage #spin');
+    await expect(spin).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('s');
+    await expect(spin).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#stage #morph')).toHaveAttribute('aria-pressed', 'false');
+
+    const order = await page.evaluate(
+      () =>
+        document
+          .getElementById('shelfCount')
+          .compareDocumentPosition(document.getElementById('curOn')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(order).toBeTruthy();
+    await expect(page.locator('#curStatus')).toHaveText('');
+  });
+
+  test('orbit hint retires after the first drag and stays retired', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const hint = page.locator('.stage .hint');
+    await expect(hint).toBeVisible();
+    const box = await page.locator('#focus').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2);
+    await page.mouse.up();
+    await expect(hint).toBeHidden();
+    await page.reload();
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(hint).toBeHidden();
   });
 
   test('discrete genes use segments and dim genes that do not apply', async ({ page }) => {

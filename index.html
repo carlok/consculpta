@@ -13,9 +13,8 @@
   <header class="top">
     <div>
       <h1>Consculpta</h1>
-      <p class="lede">Sculptures grown from evolving formulas over 3D simplex noise, raymarched on your GPU. Each offspring rewrites its parent's formula. Pick the ones you like, or turn on the AI breeder to have a configured model rank litters and breed alongside you.</p>
+      <p class="lede">Sculptures grown from evolving formulas over 3D simplex noise, raymarched on your GPU.<span class="lede-more"> Each offspring rewrites its parent's formula; pick the ones you like and keep breeding.</span></p>
     </div>
-    <p class="gpu mono" id="gpu">WebGL 2</p>
   </header>
 
   <main class="bench big" id="bench">
@@ -25,10 +24,13 @@
         <div class="plate"><span class="id" id="plateId">G1 · ----</span><span class="kind" id="plateKind">solid · sphere</span></div>
         <span class="hint mono">drag to orbit · scroll or pinch to zoom</span>
         <div class="zoomer" id="zoomer">
-          <button class="btn zb" id="zOut" type="button" aria-label="Zoom out">−</button>
-          <button class="btn zb" id="zIn" type="button" aria-label="Zoom in">+</button>
-          <button class="btn" id="zReset" type="button">Reset</button>
-          <button class="btn" id="zFull" type="button" hidden>Fullscreen</button>
+          <button class="btn zb" id="zOut" type="button" aria-label="Zoom out" title="Zoom out (−)">−</button>
+          <button class="btn zb" id="zIn" type="button" aria-label="Zoom in" title="Zoom in (+)">+</button>
+          <button class="btn zb" id="zReset" type="button" aria-label="Reset camera" title="Reset camera (0)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
+          <span class="zsep" aria-hidden="true"></span>
+          <button class="btn zb" id="spin" type="button" aria-pressed="true" aria-label="Spin" title="Spin (S)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg></button>
+          <button class="btn zb" id="morph" type="button" aria-pressed="false" aria-label="Morph" title="Morph (M)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12c3-6 6-6 9 0s6 6 9 0"/></svg></button>
+          <button class="btn zb" id="zFull" type="button" aria-pressed="false" aria-label="Fullscreen" title="Fullscreen" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="fs-off" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="fs-on" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
         </div>
         <div class="stage-msg" id="stageMsg" hidden></div>
       </div>
@@ -39,12 +41,10 @@
         <button class="btn" id="redo" type="button" aria-keyshortcuts="Shift+Z Shift+Meta+Z Control+Y" disabled>Redo</button>
         <button class="btn" id="random" type="button">Random</button>
         <span class="sep" aria-hidden="true"></span>
-        <button class="btn" id="spin" type="button" aria-pressed="true">Spin</button>
-        <button class="btn" id="morph" type="button" aria-pressed="false">Morph</button>
-        <button class="btn only-wide" id="bigView" type="button" aria-pressed="false">Large view</button>
-        <span class="sep" aria-hidden="true"></span>
         <button class="btn" id="snap" type="button">Snapshot</button>
         <button class="btn" id="glsl" type="button">Shader code</button>
+        <span class="sep only-wide" aria-hidden="true"></span>
+        <button class="btn only-wide" id="bigView" type="button" aria-pressed="false">Large view</button>
       </div>
     </section>
 
@@ -60,12 +60,60 @@
       <div class="litter" id="litter"></div>
       </div>
 
+
+      <div class="keepers">
+      <div class="sec-head">
+        <h2>Kept</h2><span class="mono muted grow" id="shelfCount">0 of 12</span>
+      </div>
+      <div class="shelf" id="shelf"></div>
+      <p class="empty" id="shelfEmpty">Press Keep to pin the current specimen here. Once the shelf has something on it, two of every six offspring graft a branch of a kept formula into the parent's.</p>
+
+      <details class="genome" id="genome">
+        <summary><h2>Genome</h2><span class="mono muted" id="genomeSum">formula · 25 genes</span></summary>
+        <div class="genome-body">
+          <div class="reset-row">
+            <button class="btn" id="resetGenes" type="button">Reset genes</button>
+            <button class="btn" id="resetGenome" type="button">Reset genome</button>
+            <p class="muted">Reset genes keeps the formula and puts every slider back to its default. Reset genome goes back to the starting specimen. Undo reverses either.</p>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Shape formula</h3><span class="mono muted" id="fStats"></span></div>
+            <textarea class="formula" id="fText" spellcheck="false" autocomplete="off" aria-label="Shape formula" aria-describedby="fErr"></textarea>
+            <div class="group-head"><h3>Colour formula</h3></div>
+            <textarea class="formula short" id="cText" spellcheck="false" autocomplete="off" aria-label="Colour formula" aria-describedby="fErr"></textarea>
+            <div class="apply-row"><button class="btn btn-primary" id="fApply" type="button" aria-keyshortcuts="Meta+Enter Control+Enter">Apply formulas</button><span class="mono muted kbd-hint">⌘/Ctrl + Enter</span><span class="warn" id="fErr" role="status"></span></div>
+            <details class="ref"><summary>Formula language</summary><pre id="langRef"></pre></details>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Surface</h3></div>
+            <div class="sliders" id="gSurface"></div>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Colour <span class="formula">a + b·cos 2π(c·t + d)</span></h3></div>
+            <div class="strip" id="strip" aria-hidden="true"></div>
+            <div class="palgrid" id="palgrid"></div>
+            <div class="sliders" id="gColor"></div>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Light</h3></div>
+            <div class="sliders" id="gLight"></div>
+          </div>
+          <div class="code-row">
+            <label for="code">Genome code. Paste one and press Load to restore a specimen.</label>
+            <input id="code" type="text" spellcheck="false" autocomplete="off">
+            <button class="btn" id="copyCode" type="button">Copy</button>
+            <button class="btn" id="loadCode" type="button">Load</button>
+          </div>
+        </div>
+      </details>
+      </div>
+
       <section class="curator" aria-label="AI breeder">
         <div class="sec-head">
           <h2 id="curTitle">AI breeder</h2><span class="mono muted grow" id="curStatus">not set up</span>
           <button class="btn" id="curOn" type="button" aria-pressed="false" aria-label="AI breeder">Off</button>
         </div>
-        <p class="empty" id="curOffNote">Off. Litters come only from mutation and your picks. Turn it on to let a configured model rank litters and add offspring of its own.</p>
+        <p class="empty" id="curOffNote">Optional. Let a model you configure rank each litter and add offspring of its own.</p>
         <div class="cur-body" id="curBody">
           <div class="cur-row">
             <label class="field" for="curEvery">Turn every
@@ -118,53 +166,6 @@
           <p class="empty" id="curEmpty">On its turn the configured model looks at the litter as one picture, ranks the six, says in a line why its favourite works, and writes an offspring formula of its own. Its notes carry over from turn to turn, so it builds a consistent taste, and it is told which offspring you picked.</p>
         </div>
       </section>
-
-      <div class="keepers">
-      <div class="sec-head">
-        <h2>Kept</h2><span class="mono muted grow" id="shelfCount">0 of 12</span>
-      </div>
-      <div class="shelf" id="shelf"></div>
-      <p class="empty" id="shelfEmpty">Press Keep to pin the current specimen here. Once the shelf has something on it, two of every six offspring graft a branch of a kept formula into the parent's.</p>
-
-      <details class="genome" id="genome">
-        <summary><h2>Genome</h2><span class="mono muted" id="genomeSum">formula · 25 genes</span></summary>
-        <div class="genome-body">
-          <div class="reset-row">
-            <button class="btn" id="resetGenes" type="button">Reset genes</button>
-            <button class="btn" id="resetGenome" type="button">Reset genome</button>
-            <p class="muted">Reset genes keeps the formula and puts every slider back to its default. Reset genome goes back to the starting specimen. Undo reverses either.</p>
-          </div>
-          <div class="group">
-            <div class="group-head"><h3>Shape formula</h3><span class="mono muted" id="fStats"></span></div>
-            <textarea class="formula" id="fText" spellcheck="false" autocomplete="off" aria-label="Shape formula" aria-describedby="fErr"></textarea>
-            <div class="group-head"><h3>Colour formula</h3></div>
-            <textarea class="formula short" id="cText" spellcheck="false" autocomplete="off" aria-label="Colour formula" aria-describedby="fErr"></textarea>
-            <div class="apply-row"><button class="btn btn-primary" id="fApply" type="button" aria-keyshortcuts="Meta+Enter Control+Enter">Apply formulas</button><span class="mono muted kbd-hint">⌘/Ctrl + Enter</span><span class="warn" id="fErr" role="status"></span></div>
-            <details class="ref"><summary>Formula language</summary><pre id="langRef"></pre></details>
-          </div>
-          <div class="group">
-            <div class="group-head"><h3>Surface</h3></div>
-            <div class="sliders" id="gSurface"></div>
-          </div>
-          <div class="group">
-            <div class="group-head"><h3>Colour <span class="formula">a + b·cos 2π(c·t + d)</span></h3></div>
-            <div class="strip" id="strip" aria-hidden="true"></div>
-            <div class="palgrid" id="palgrid"></div>
-            <div class="sliders" id="gColor"></div>
-          </div>
-          <div class="group">
-            <div class="group-head"><h3>Light</h3></div>
-            <div class="sliders" id="gLight"></div>
-          </div>
-          <div class="code-row">
-            <label for="code">Genome code. Paste one and press Load to restore a specimen.</label>
-            <input id="code" type="text" spellcheck="false" autocomplete="off">
-            <button class="btn" id="copyCode" type="button">Copy</button>
-            <button class="btn" id="loadCode" type="button">Load</button>
-          </div>
-        </div>
-      </details>
-      </div>
     </section>
   </main>
 
@@ -176,6 +177,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
       </a>
       <span class="mono" id="footerCopy"></span>
+      <span class="mono muted gpu" id="gpu">WebGL 2</span>
       <button class="linkish" id="keysOpen" type="button" aria-keyshortcuts="Shift+Slash">Keyboard shortcuts</button>
     </p>
   </footer>
