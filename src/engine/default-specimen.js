@@ -6,8 +6,14 @@ import { cloneG, decode } from './genome.js';
 export const DEFAULT_SPECIMEN_CODE =
   'nsb3.eyJmIjoic29mdCh0d2lzdCgxLjQsIGFkZChhYnMoeCksIHN1Yih6b29tKDIuNDAzLCBzbWluKDAuNDE2LCByb3R5KDIuNDI2LCBmYm0oMS41NTUsIDIsIDU2OCkpLCBmYm0oMS42MSwgMywgMzU1KSkpLCBub2lzZSgwLjk5MiwgNCkpKSkpIiwiYyI6Im11bCgtMC40NTksIHopIiwidiI6IjUwNWM1YTAwMGQ1NjAwMGVkZGE3MmFiMmY5OGUyNTJlZWZiYWI3NGU5ZWQ1MTA5MjAyNzU0M2UxMjliYjZjY2MwMzViOTFlMjQwMCJ9';
 
-/** Short tag from {@link DEFAULT_SPECIMEN_CODE} with the current encode/tag implementation. */
+/**
+ * Short tag from {@link DEFAULT_SPECIMEN_CODE} via `tag()` (FNV-1a of the full `nsb3` string).
+ * The maintainer shader export is labelled **39E1** in its filename/comment; that label is not `tag()`.
+ */
 export const DEFAULT_SPECIMEN_TAG = '74C8';
+
+/** Four-digit label on the maintainer GLSL export (`docs/fixtures/default-specimen-39E1.glsl`). */
+export const DEFAULT_SPECIMEN_EXPORT_LABEL = '39E1';
 
 export const DEFAULT_SPECIMEN_SHAPE =
   'soft(twist(1.4, add(abs(x), sub(zoom(2.403, smin(0.416, roty(2.426, fbm(1.555, 2, 568)), fbm(1.61, 3, 355))), noise(0.992, 4)))))';

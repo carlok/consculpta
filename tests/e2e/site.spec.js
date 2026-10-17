@@ -112,6 +112,8 @@ test.describe('Consculpta legacy site', () => {
   });
 
   test('toast Undo reverts Random', async ({ page }) => {
+    // Spin off, so software WebGL leaves time to act on the 6 s toast.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     const plate = page.locator('#plateId');
     await expect(plate).toHaveText('G1 · 74C8');
