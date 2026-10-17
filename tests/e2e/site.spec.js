@@ -4,11 +4,30 @@ import { expect, test } from '@playwright/test';
 test.describe('Consculpta legacy site', () => {
   test.describe.configure({ mode: 'serial' });
   test('shows GitHub footer link and AI breeder off on first visit', async ({ page }) => {
+    test.setTimeout(120_000);
     await page.addInitScript(() => {
       localStorage.clear();
     });
     await page.goto('/consculpta/');
     await expect(page.getByRole('heading', { level: 1, name: 'Consculpta' })).toBeVisible();
+
+    // Footer copyright is written at the end of legacy/app.js (after breed/WebGL init).
+    // Wait once for a fully bootstrapped first visit instead of timing out on early asserts.
+    await page.waitForFunction(
+      () => {
+        const on = document.getElementById('curOn');
+        const foot = document.getElementById('footerCopy');
+        const plate = document.getElementById('plateId');
+        return (
+          on?.getAttribute('aria-pressed') === 'false' &&
+          on?.textContent === 'Off' &&
+          foot?.textContent?.includes('carlok') &&
+          plate?.textContent?.includes('74C8')
+        );
+      },
+      null,
+      { timeout: 90_000 },
+    );
 
     const repo = page.locator('footer a.footer-repo');
     await expect(repo).toHaveAttribute('href', 'https://github.com/carlok/consculpta');
@@ -25,7 +44,7 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#bigView')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#bench')).not.toHaveClass(/big/);
 
-    await expect(page.locator('#plateId')).toContainText('74C8', { timeout: 45_000 });
+    await expect(page.locator('#plateId')).toContainText('74C8');
     await expect(page.locator('#code')).toHaveValue(
       await page.evaluate(() => ENGINE.DEFAULT_SPECIMEN_CODE),
     );
