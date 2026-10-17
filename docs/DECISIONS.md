@@ -21,6 +21,7 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 |----------|--------|-------|
 | Project licence | **Apache-2.0** | [LICENSE](../LICENSE); SPDX on project-authored files |
 | Third-party licences | Per component | Fonts: SIL OFL 1.1; future GLSL noise: MIT |
+| Showcase renders (`docs/images/`) | Maintainer-owned | Listed in [REUSE.toml](../REUSE.toml); `specimen-01.png` is **Apache-2.0** (may switch to CC-BY-4.0 for later images — update REUSE + this table) |
 | `SECURITY.md` / `CITATION.cff` contact | **TBD** | Maintainer name and contact |
 | Engineering brief in repo | **Removed** | Internal phase plan lived in `BRIEF.md`; removed from the tree to avoid stale references. Phases are tracked in commits, `CHANGELOG.md`, and PRs. |
 
@@ -45,10 +46,10 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 
 | Decision | Choice | Notes |
 |----------|--------|-------|
-| Linter / formatter | Biome `2.0.5` | `legacy/` excluded until refactor |
-| Typecheck | TypeScript `5.9.3`, `checkJs` + `strict` on `src/` and `tests/` | |
-| Bundler | Vite `7.1.9`, `base: './'` | Dev shell at `src/index.html` |
-| CI | `.github/workflows/ci.yml` — lint, typecheck, unit tests | Pages workflow runs `npm run check` |
+| Linter / formatter | Biome `2.5.15` | `legacy/` excluded until UI refactor |
+| Typecheck | TypeScript `7.x`, `checkJs` + `strict` on `src/` | |
+| Bundler | Vite `8.x`, `base: './'` | Dev shell at `src/index.html`; `npm run build:engine` → `legacy/engine.bundle.js` |
+| CI | lint, typecheck, coverage (engine thresholds), e2e | Pages runs `npm run check`, publishes `coverage/` at `/consculpta/coverage/` |
 | Dependabot | npm + github-actions, weekly | **Grouped:** one PR for all npm dev deps, one for all Actions; `open-pull-requests-limit: 2` per ecosystem |
 
 ## Phase 0 (walking skeleton)
@@ -57,3 +58,11 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 |----------|--------|-------|
 | Deployed site | Root `index.html` + `legacy/*` + vendored fonts | Until UI refactor |
 | Unit tests | Vitest `3.2.4` + lockfile | Characterization against `legacy/engine.js` |
+
+## Phase 2 (engine)
+
+| Decision | Choice | Notes |
+|----------|--------|-------|
+| Engine layout | `src/engine/*` modules | rng, noise, ops, parse, print, evaluate, codegen-glsl, genome, analysis, evolve, palette (+ tree helpers) |
+| Legacy site engine | **Modular IIFE bundle** | `index.html` loads `legacy/engine.bundle.js` built from `src/engine/`; behaviour matches frozen `legacy/engine.snapshot.js` (parity tests) |
+| Coverage | `src/engine/**` | Vitest ≥90% lines, ≥85% branches; HTML report on Pages |

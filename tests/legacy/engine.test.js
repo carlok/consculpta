@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import E from '../helpers/legacy-engine.mjs';
+import E from '../helpers/engine.mjs';
 
 const ROUNDTRIP_FORMULAS = [
   'warp(0.5, 0.6, 3, fbm(1, 2, 7))',

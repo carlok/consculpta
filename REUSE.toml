@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# REUSE specification 3.3 — https://reuse.software/spec-3.3/
+version = 1
+SPDX-PackageName = "Consculpta"
+SPDX-PackageDownloadLocation = "https://github.com/carlok/consculpta"
+
+[[annotations]]
+path = "docs/images/specimen-01.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Consculpta maintainers"
+SPDX-License-Identifier = "Apache-2.0"
