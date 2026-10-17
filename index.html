@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<meta charset="utf-8">
+<title>Noise Sculpture Breeder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="third_party/fonts/fonts.css">
+<link rel="stylesheet" href="legacy/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Noise Sculpture Breeder</h1>
+      <p class="lede">Sculptures grown from evolving formulas over 3D simplex noise, raymarched on your GPU. Each offspring rewrites its parent's formula. Pick the ones you like; Claude can look at every few litters and breed alongside you.</p>
+    </div>
+    <p class="gpu mono" id="gpu">WebGL 2</p>
+  </header>
+
+  <main class="bench big" id="bench">
+    <section class="col" aria-label="Current specimen">
+      <div class="stage" id="stage" tabindex="0" aria-label="Current specimen. Drag or use the arrow keys to orbit.">
+        <canvas id="focus"></canvas>
+        <div class="plate"><span class="id" id="plateId">G1 · ----</span><span class="kind" id="plateKind">solid · sphere</span></div>
+        <span class="hint mono">drag to orbit · scroll or pinch to zoom</span>
+        <div class="zoomer" id="zoomer">
+          <button class="btn zb" id="zOut" type="button" aria-label="Zoom out">−</button>
+          <button class="btn zb" id="zIn" type="button" aria-label="Zoom in">+</button>
+          <button class="btn" id="zReset" type="button">Reset</button>
+          <button class="btn" id="zFull" type="button" hidden>Fullscreen</button>
+        </div>
+        <div class="stage-msg" id="stageMsg" hidden></div>
+      </div>
+      <div class="readout mono"><span id="readRes">—</span><span id="readFrame">—</span></div>
+      <div class="actions">
+        <button class="btn btn-primary" id="keep" type="button">Keep</button>
+        <button class="btn" id="undo" type="button">Undo</button>
+        <button class="btn" id="random" type="button">Random</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="btn" id="spin" type="button" aria-pressed="true">Spin</button>
+        <button class="btn" id="morph" type="button" aria-pressed="false">Morph</button>
+        <button class="btn only-wide" id="bigView" type="button" aria-pressed="true">Large view</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="btn" id="snap" type="button">Snapshot</button>
+        <button class="btn" id="glsl" type="button">Shader code</button>
+      </div>
+    </section>
+
+    <section class="col breed" aria-label="Breeding">
+      <div class="litter-block">
+      <div class="sec-head">
+        <h2>Litter</h2>
+        <span class="mono muted grow" id="litterGen">generation 2</span>
+        <label class="rate" for="rate">Mutation <input type="range" id="rate" min="5" max="100" value="35"><span class="mono" id="rateOut">35%</span></label>
+        <button class="btn" id="reroll" type="button">New litter</button>
+      </div>
+      <div class="turn" id="turn" hidden><span id="turnText"></span><button class="btn" id="turnCancel" type="button">Choose myself</button></div>
+      <div class="litter" id="litter"></div>
+      </div>
+
+      <section class="curator" aria-label="AI breeder">
+        <div class="sec-head">
+          <h2 id="curTitle">Claude's eye</h2><span class="mono muted grow" id="curStatus">connecting…</span>
+          <button class="btn" id="curOn" type="button" aria-pressed="true" aria-label="AI breeder">On</button>
+        </div>
+        <p class="empty" id="curOffNote" hidden>Off. Litters come only from mutation and your picks. Turn it on to let Claude or another model rank litters and add offspring of its own.</p>
+        <div class="cur-body" id="curBody">
+          <div class="cur-row">
+            <label class="field" for="curEvery">Turn every
+              <select id="curEvery">
+                <option value="0">never, only when asked</option>
+                <option value="2">2 of your picks</option>
+                <option value="3" selected>3 of your picks</option>
+                <option value="5">5 of your picks</option>
+              </select>
+            </label>
+            <label class="field" for="curRole">On its turn
+              <select id="curRole">
+                <option value="advise">ranks and adds an offspring</option>
+                <option value="turns">chooses the next parent</option>
+              </select>
+            </label>
+            <button class="btn btn-claude" id="curAsk" type="button">Ask Claude now</button>
+            <button class="btn" id="curStop" type="button" hidden>Stop</button>
+          </div>
+          <details class="cur-set" id="curSet">
+            <summary><span class="cs-t">Model settings</span><span class="mono muted cs-s" id="curSetSum"></span></summary>
+            <div class="set-grid">
+              <label class="field" for="aiProvider">Provider
+                <select id="aiProvider">
+                  <option value="claude">Claude in claude.ai</option>
+                  <option value="anthropic">Anthropic API</option>
+                  <option value="openai">OpenAI-compatible endpoint</option>
+                </select>
+              </label>
+              <label class="field" for="aiModelSel" id="aiModelSelWrap">Model
+                <select id="aiModelSel">
+                  <option value="">Default</option>
+                  <option value="claude-haiku-5-5">Haiku 5.5</option>
+                  <option value="claude-sonnet-5-5">Sonnet 5.5</option>
+                  <option value="claude-opus-5-5">Opus 5.5</option>
+                  <option value="claude-fable-5-1">Fable 5.1</option>
+                </select>
+              </label>
+              <label class="field" for="aiModel" id="aiModelWrap">Model
+                <input class="tin" id="aiModel" type="text" list="aiModels" autocomplete="off" spellcheck="false" placeholder="model id">
+              </label>
+              <datalist id="aiModels"></datalist>
+              <label class="field" for="aiEffort">Effort <select id="aiEffort"></select></label>
+              <label class="field wide" for="aiEndpoint" id="aiEndpointWrap">Endpoint
+                <input class="tin" id="aiEndpoint" type="url" autocomplete="off" spellcheck="false">
+              </label>
+              <label class="field wide" for="aiKey" id="aiKeyWrap">API key
+                <input class="tin" id="aiKey" type="password" autocomplete="off" spellcheck="false">
+              </label>
+              <label class="field check" for="aiImage"><input type="checkbox" id="aiImage" checked> Send the litter picture</label>
+              <label class="field check" for="aiRemember" id="aiRememberWrap"><input type="checkbox" id="aiRemember"> Remember the key on this device</label>
+            </div>
+            <p class="set-note" id="aiNote"></p>
+          </details>
+          <div class="log-head" id="logHead" hidden>
+            <h3>Notes <span class="log-n" id="logCount"></span></h3>
+            <button class="btn" id="logToggle" type="button" aria-expanded="true" aria-controls="curLog">Hide notes</button>
+          </div>
+          <ol class="cur-log" id="curLog"></ol>
+          <p class="empty" id="curEmpty">On its turn the model looks at the litter as one picture, ranks the six, says in a line why its favourite works, and writes an offspring formula of its own. Its notes carry over from turn to turn, so it builds a consistent taste, and it is told which offspring you picked.</p>
+        </div>
+      </section>
+
+      <div class="keepers">
+      <div class="sec-head">
+        <h2>Kept</h2><span class="mono muted grow" id="shelfCount">0 of 12</span>
+      </div>
+      <div class="shelf" id="shelf"></div>
+      <p class="empty" id="shelfEmpty">Press Keep to pin the current specimen here. Once the shelf has something on it, two of every six offspring graft a branch of a kept formula into the parent's.</p>
+
+      <details class="genome" id="genome">
+        <summary><h2>Genome</h2><span class="mono muted" id="genomeSum">formula · 25 genes</span></summary>
+        <div class="genome-body">
+          <div class="reset-row">
+            <button class="btn" id="resetGenes" type="button">Reset genes</button>
+            <button class="btn" id="resetGenome" type="button">Reset genome</button>
+            <p class="muted">Reset genes keeps the formula and puts every slider back to its default. Reset genome goes back to the starting specimen. Undo reverses either.</p>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Shape formula</h3><span class="mono muted" id="fStats"></span></div>
+            <textarea class="formula" id="fText" spellcheck="false" autocomplete="off" aria-label="Shape formula"></textarea>
+            <div class="group-head"><h3>Colour formula</h3></div>
+            <textarea class="formula short" id="cText" spellcheck="false" autocomplete="off" aria-label="Colour formula"></textarea>
+            <div class="apply-row"><button class="btn btn-primary" id="fApply" type="button">Apply formulas</button><span class="warn" id="fErr" role="status"></span></div>
+            <details class="ref"><summary>Formula language</summary><pre id="langRef"></pre></details>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Surface</h3></div>
+            <div class="sliders" id="gSurface"></div>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Colour <span class="formula">a + b·cos 2π(c·t + d)</span></h3></div>
+            <div class="strip" id="strip" aria-hidden="true"></div>
+            <div class="palgrid" id="palgrid"></div>
+            <div class="sliders" id="gColor"></div>
+          </div>
+          <div class="group">
+            <div class="group-head"><h3>Light</h3></div>
+            <div class="sliders" id="gLight"></div>
+          </div>
+          <div class="code-row">
+            <label for="code">Genome code. Paste one and press Load to restore a specimen.</label>
+            <input id="code" type="text" spellcheck="false" autocomplete="off">
+            <button class="btn" id="copyCode" type="button">Copy</button>
+            <button class="btn" id="loadCode" type="button">Load</button>
+          </div>
+        </div>
+      </details>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Each sculpture is the region where a formula over 3D simplex noise rises above an iso level inside a sphere, cube or drum. Formulas are trees of noise, trigonometry and space transforms (twist, mirror, rotate, warp). Every offspring changes its parent's tree by tweaking a number, swapping a function, grafting a new branch, wrapping a node or cutting one out. About one offspring in twelve switches to strands: thin filaments traced where the formula's surface crosses a rotated copy of itself. The page evaluates each formula on 520 sample points to normalise it, estimate a safe raymarching step and throw out empty or solid results before anything is compiled.</p>
+    <p>Simplex noise by Ian McEwan, Ashima Arts and Stefan Gustavson (MIT). Colours use Inigo Quilez's cosine palettes. Shader code exports a standalone Shadertoy shader with the formula compiled in.</p>
+  </footer>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-panel">
+    <div class="sheet-head"><h2 id="sheetTitle">Snapshot</h2><button class="btn" id="sheetClose" type="button">Close</button></div>
+    <div id="snapView" style="display:grid;gap:12px">
+      <div class="snap-opts">
+        <label class="field" for="snapSize">Size
+          <select id="snapSize"><option value="3840">4K · 3840 px</option><option value="7680">8K · 7680 px</option></select>
+        </label>
+        <label class="field" for="snapFrame">Frame
+          <select id="snapFrame"><option value="wide">16:9 landscape</option><option value="square">square</option><option value="tall">9:16 portrait</option></select>
+        </label>
+        <label class="field" for="snapSS">Smoothing
+          <select id="snapSS"><option value="2">4 samples per pixel</option><option value="1">1 sample, 4× faster</option></select>
+        </label>
+        <button class="btn btn-primary" id="snapGo" type="button">Render</button>
+      </div>
+      <p class="mono muted" id="snapInfo"></p>
+      <div class="progress"><div class="bar" id="snapBar"></div></div>
+      <p class="mono muted" id="snapMsg">Uses the current camera angle. Spin pauses while it renders.</p>
+      <div class="viewer" id="viewer" tabindex="0" role="img" aria-label="Render preview. Scroll or pinch to zoom, drag to pan, double-click for 100%." hidden>
+        <div class="vw-stage" id="vwStage"></div>
+        <div class="vw-bar">
+          <button class="btn vw-btn" id="vwOut" type="button" aria-label="Zoom out">−</button>
+          <span class="mono vw-z" id="vwZ">fit</span>
+          <button class="btn vw-btn" id="vwIn" type="button" aria-label="Zoom in">+</button>
+          <button class="btn" id="vwFit" type="button">Fit</button>
+          <button class="btn" id="vwOne" type="button">100%</button>
+        </div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-primary" id="snapSave" type="button" hidden>Save PNG</button>
+        <p class="muted" id="snapHint" hidden></p>
+      </div>
+    </div>
+    <div id="glslView" style="display:grid;gap:12px" hidden>
+      <p class="muted">Paste into a new shader on shadertoy.com (Image tab). Drag in the preview to orbit. Set MORPH above zero to make the shape flow.</p>
+      <textarea id="glslText" readonly spellcheck="false" aria-label="Shader source"></textarea>
+      <div class="sheet-actions">
+        <button class="btn btn-primary" id="glslCopy" type="button">Copy shader</button>
+        <button class="btn" id="glslSave" type="button" hidden>Save as .txt</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+
+<script src="legacy/engine.js"></script>
+<script src="legacy/app.js"></script>
+</body>
+</html>
