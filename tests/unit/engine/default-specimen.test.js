@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SPECIMEN_CODE,
   DEFAULT_SPECIMEN_COLOUR,
+  DEFAULT_SPECIMEN_EXPORT_LABEL,
   DEFAULT_SPECIMEN_P,
   DEFAULT_SPECIMEN_SHAPE,
   DEFAULT_SPECIMEN_TAG,
@@ -16,6 +17,8 @@ describe('default specimen 39E1', () => {
     expect(print(g.t)).toBe(DEFAULT_SPECIMEN_SHAPE);
     expect(print(g.c)).toBe(DEFAULT_SPECIMEN_COLOUR);
     expect(tag(g)).toBe(DEFAULT_SPECIMEN_TAG);
+    expect(DEFAULT_SPECIMEN_TAG).not.toBe(DEFAULT_SPECIMEN_EXPORT_LABEL);
+    expect(DEFAULT_SPECIMEN_EXPORT_LABEL).toBe('39E1');
     expect(DEFAULT_SPECIMEN_CODE.startsWith('nsb3.')).toBe(true);
   });
 

@@ -11,5 +11,13 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["src/**/*.js", "vite.config.js", "vitest.config.js", "playwright.config.js"]
+  "include": [
+    "src/**/*.js",
+    "src/vite-env.d.ts",
+    "vite.config.js",
+    "vite.engine.config.js",
+    "vite.render.config.js",
+    "vitest.config.js",
+    "playwright.config.js"
+  ]
 }
