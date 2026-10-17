@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run characterization tests
+        run: npm test
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run characterization tests
+        run: npm test
+
+      - name: Prepare static site
+        run: |
+          mkdir -p _site/legacy _site/third_party
+          cp index.html _site/
+          cp -r legacy/. _site/legacy/
+          cp -r third_party/fonts _site/third_party/
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
