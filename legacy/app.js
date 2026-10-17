@@ -527,7 +527,7 @@ $('stage').addEventListener('wheel', e => {
   const engaged = stageEl.contains(document.activeElement) || !!(document.fullscreenElement || document.webkitFullscreenElement);
   if (!engaged && !e.ctrlKey && !e.metaKey){
     const tip = $('stageTip'); tip.textContent = `Click the stage or hold ${MOD} to zoom`; tip.hidden = false;
-    clearTimeout(tipTimer); tipTimer = setTimeout(() => { tip.hidden = true; }, 1400);
+    clearTimeout(tipTimer); tipTimer = setTimeout(() => { tip.hidden = true; }, 2200);
     return;
   }
   e.preventDefault();

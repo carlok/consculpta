@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Consculpta legacy site', () => {
   test.describe.configure({ mode: 'serial' });
+  // Spin starts off: on CI's software WebGL a spinning stage starves the main thread and toasts or
+  // tips can expire before the test acts on them. The overlay test toggles Spin explicitly.
+  test.use({ reducedMotion: 'reduce' });
   test('shows GitHub footer link and AI breeder off on first visit', async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => {
@@ -93,6 +96,7 @@ test.describe('Consculpta legacy site', () => {
   });
 
   test('number keys adopt, Z undoes and Shift+Z redoes', async ({ page }) => {
+    test.setTimeout(120_000);
     await page.goto('/consculpta/');
     const plate = page.locator('#plateId');
     await expect(plate).toHaveText('G1 · 74C8');
@@ -113,8 +117,6 @@ test.describe('Consculpta legacy site', () => {
 
   test('toast Undo reverts Random', async ({ page }) => {
     test.setTimeout(120_000);
-    // Spin off, so software WebGL leaves time to act on the toast.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     const plate = page.locator('#plateId');
     await expect(plate).toHaveText('G1 · 74C8');
@@ -127,7 +129,6 @@ test.describe('Consculpta legacy site', () => {
 
   test('Keep shows kept state and shelf delete can be undone', async ({ page }) => {
     test.setTimeout(120_000);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
     const keep = page.locator('#keep');
@@ -156,9 +157,9 @@ test.describe('Consculpta legacy site', () => {
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
     const spin = page.locator('#stage #spin');
-    await expect(spin).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('s');
     await expect(spin).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('s');
+    await expect(spin).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#stage #morph')).toHaveAttribute('aria-pressed', 'false');
 
     const order = await page.evaluate(
@@ -178,10 +179,18 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#stageBusy')).toBeHidden();
     const box = await page.locator('#focus').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // The tip hides itself after a couple of seconds; record that it appeared instead of racing it.
+    await page.evaluate(() => {
+      const tip = document.getElementById('stageTip');
+      window.__tipShown = false;
+      new MutationObserver(() => {
+        if (!tip.hidden) window.__tipShown = true;
+      }).observe(tip, { attributes: true, attributeFilter: ['hidden'] });
+    });
 
     await page.mouse.wheel(0, 200);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    await expect(page.locator('#stageTip')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__tipShown)).toBe(true);
     await expect(page.locator('#readRes')).toContainText('zoom 1.00×');
 
     await page.locator('#stage').focus();
@@ -209,8 +218,6 @@ test.describe('Consculpta legacy site', () => {
 
   test('share link loads a specimen once and Undo returns yours', async ({ page }) => {
     test.setTimeout(120_000);
-    // Spin starts off with reduced motion, so software WebGL leaves time to act on the toast.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
     await page.locator('#random').click();
