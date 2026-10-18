@@ -83,14 +83,30 @@ function endPreview(){
   if (!preview) return;
   preview = null; focusDirty = true; syncPlate();
 }
-/* Sound (experimental): generative audio read off the specimen on screen (src/audio). The audio bundle
-   (Tone.js, arrangement) and the VCSL samples load only on the first click; off on every page load. */
+/* Sound (experimental): generative audio read off the specimen on screen (src/audio). On by default
+   (nsb.sound '0' = off). Browsers only allow audio after the visitor interacts, so it waits "armed"
+   until the first click, tap or key press anywhere; the audio bundle (Tone.js, arrangement) and the
+   VCSL samples load then. */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let sound = null, soundLoading = null, audioCtx = null;
 let vol = 0.6;
 try { const v = localStorage.getItem('nsb.vol'); if (v !== null && Number(v) >= 0 && Number(v) <= 1) vol = Number(v); } catch (e) {}
 $('vol').value = String(Math.round(vol*100));
 $('sound').hidden = !AudioCtx;
+let soundWanted = true;
+try { soundWanted = localStorage.getItem('nsb.sound') !== '0'; } catch (e) {}
+function rememberSound(on){ soundWanted = on; try { localStorage.setItem('nsb.sound', on ? '1' : '0'); } catch (e) {} }
+/* Armed: wanted but not started yet (no interaction so far). The button already reads as on. */
+function setArmed(on){
+  $('sound').classList.toggle('armed', on);
+  $('sound').title = on ? 'Sound starts with your first click or key press (A turns it off)' : 'Sound, experimental (A)';
+}
+/* Safari only starts audio inside a user gesture, so the context is created and resumed synchronously
+   in the gesture itself, before awaiting the bundle; Tone adopts it. */
+function wakeAudio(){
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state !== 'running') audioCtx.resume();
+}
 function loadSound(){
   if (!soundLoading){
     soundLoading = new Promise((resolve, reject) => {
@@ -110,14 +126,11 @@ function loadSound(){
 /* A new parent (generation or formula) rings the gong; slider edits and thumbnail previews do not. */
 const soundKey = () => `${S.gen}:${E.print(S.parent.t)}`;
 function soundSpecimen(){ if (sound && sound.playing) sound.setSpecimen(preview ? preview.g : S.parent, soundKey()); }
-$('sound').addEventListener('click', async () => {
+async function startSound(){
   const btn = $('sound');
-  if (sound && sound.playing){ sound.stop(); setToggle('sound', false); $('vol').hidden = true; return; }
-  if (btn.getAttribute('aria-busy') === 'true') return;
-  // Safari only starts audio inside the click itself, so the context is created and resumed here,
-  // before awaiting the bundle; Tone adopts it.
-  if (!audioCtx){ audioCtx = new AudioCtx(); }
-  audioCtx.resume();
+  if (btn.getAttribute('aria-busy') === 'true' || (sound && sound.playing)) return;
+  wakeAudio();
+  setArmed(false);
   btn.setAttribute('aria-busy', 'true');
   try {
     await loadSound();
@@ -129,7 +142,31 @@ $('sound').addEventListener('click', async () => {
     console.warn('sound', e);
     setToggle('sound', false); $('vol').hidden = true; toast('Sound could not start in this browser.');
   } finally { btn.removeAttribute('aria-busy'); }
+}
+$('sound').addEventListener('click', () => {
+  // Playing, or armed and waiting: the button turns sound off and remembers that.
+  if ((sound && sound.playing) || $('sound').classList.contains('armed')){
+    if (sound && sound.playing) sound.stop();
+    rememberSound(false); setArmed(false); setToggle('sound', false); $('vol').hidden = true;
+    return;
+  }
+  rememberSound(true); startSound();
 });
+/* First interaction anywhere starts armed sound. Several event types, since browsers differ on which
+   count as a gesture for audio; each one resumes the context, and the listeners go once it runs. */
+const GESTURES = ['pointerup', 'click', 'touchend', 'keydown'];
+function onGesture(e){
+  const done = !soundWanted || (sound && sound.playing && audioCtx && audioCtx.state === 'running');
+  if (done){ GESTURES.forEach(t => document.removeEventListener(t, onGesture, true)); return; }
+  if (e.target && e.target.closest && e.target.closest('#sound, #vol')) return;   // the button decides for itself
+  if (e.type === 'keydown' && (e.key === 'a' || e.key === 'A' || e.metaKey || e.ctrlKey || e.altKey)) return;
+  wakeAudio();
+  startSound();
+}
+if (AudioCtx){
+  setToggle('sound', soundWanted); setArmed(soundWanted);
+  if (soundWanted) GESTURES.forEach(t => document.addEventListener(t, onGesture, true));
+}
 $('vol').addEventListener('input', e => {
   vol = Number(e.target.value)/100;
   if (sound) sound.setVolume(vol);

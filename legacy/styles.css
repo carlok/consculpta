@@ -107,6 +107,8 @@ p{margin:0}
 #zFull .fs-on,#zFull[aria-pressed="true"] .fs-off{display:none}
 #sound .snd-on,#sound[aria-pressed="true"] .snd-off{display:none}
 #sound[aria-pressed="true"] .snd-on{display:inline}
+/* On but waiting for the first interaction (browsers block audio until then). */
+#sound.armed[aria-pressed="true"]{opacity:.6}
 #sound[aria-busy="true"]{cursor:progress;animation:busy 1.1s ease-in-out infinite}
 @media (prefers-reduced-motion: reduce){#sound[aria-busy="true"]{animation:none;opacity:.6}}
 .zoomer .vol{width:84px;height:22px;margin:0 6px 0 2px;accent-color:var(--accent)}

@@ -6,6 +6,15 @@ test.describe('Consculpta legacy site', () => {
   // Spin starts off: on CI's software WebGL a spinning stage starves the main thread and toasts or
   // tips can expire before the test acts on them. The overlay test toggles Spin explicitly.
   test.use({ reducedMotion: 'reduce' });
+  // Sound is on by default and starts on the first interaction; keep it off except in the Sound test,
+  // so other tests do not load Tone.js and samples on software WebGL.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        if (localStorage.getItem('nsb.sound') === null) localStorage.setItem('nsb.sound', '0');
+      } catch {}
+    });
+  });
   test('shows GitHub footer link and AI breeder off on first visit', async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => {
@@ -374,23 +383,36 @@ test.describe('Consculpta legacy site', () => {
     expect(await page.evaluate(() => localStorage.getItem('nsb.theme'))).toBe('system');
   });
 
-  test('Sound (experimental) plays generated notes that follow the specimen', async ({ page }) => {
+  test('Sound is on by default: armed until the first interaction, and off is remembered', async ({
+    page,
+  }) => {
     test.setTimeout(120_000);
+    // Simulate a first visit for sound only (runs after the beforeEach default, once per test).
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('soundTest')) {
+        localStorage.removeItem('nsb.sound');
+        sessionStorage.setItem('soundTest', '1');
+      }
+    });
+    const requests = [];
+    page.on('request', (r) => requests.push(r.url()));
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
     const btn = page.locator('#stage #sound');
-    await expect(btn).toHaveAttribute('aria-pressed', 'false');
-    const requests = [];
-    page.on('request', (r) => requests.push(r.url()));
-    // Nothing audio-related loads until Sound is turned on.
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    await expect(btn).toHaveClass(/armed/);
+    // Nothing audio-related loads before the visitor interacts.
     expect(await page.evaluate(() => typeof AUDIO)).toBe('undefined');
     expect(requests.some((u) => u.includes('audio.bundle') || u.includes('/vcsl/'))).toBe(false);
 
-    await btn.click();
-    await expect(btn).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
+    // Any interaction starts it.
+    await page.locator('h1').click();
+    await expect
+      .poll(() => page.evaluate(() => window.__sound?.playing === true), { timeout: 30_000 })
+      .toBe(true);
+    await expect(btn).not.toHaveClass(/armed/);
     await expect(page.locator('#vol')).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__sound.stats.scheduled)).toBeGreaterThan(0);
-    expect(await page.evaluate(() => window.__sound.playing)).toBe(true);
     // The vendored samples load and take over from the fallback synth.
     await expect
       .poll(() => page.evaluate(() => window.__sound.stats.sampled), { timeout: 30_000 })
@@ -411,9 +433,35 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#plateId')).toHaveText(/^G2 · /);
     expect(await page.evaluate(() => window.__sound.score !== window.__prevScore)).toBe(true);
 
+    // A turns it off, and that sticks across a reload: no audio loads on interaction afterwards.
     await page.keyboard.press('a');
     await expect(btn).toHaveAttribute('aria-pressed', 'false');
     expect(await page.evaluate(() => window.__sound.playing)).toBe(false);
+    expect(await page.evaluate(() => localStorage.getItem('nsb.sound'))).toBe('0');
+    await page.reload();
+    await expect(page.locator('#plateId')).toHaveText(/^G2 · /);
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('h1').click();
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => typeof AUDIO)).toBe('undefined');
+  });
+
+  test('the Sound button turns armed sound off before it ever starts', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('soundTest')) {
+        localStorage.removeItem('nsb.sound');
+        sessionStorage.setItem('soundTest', '1');
+      }
+    });
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const btn = page.locator('#stage #sound');
+    await expect(btn).toHaveClass(/armed/);
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    await expect(btn).not.toHaveClass(/armed/);
+    expect(await page.evaluate(() => typeof AUDIO)).toBe('undefined');
+    expect(await page.evaluate(() => localStorage.getItem('nsb.sound'))).toBe('0');
   });
 
   test('wide screens use three columns instead of empty margins', async ({ page }) => {
