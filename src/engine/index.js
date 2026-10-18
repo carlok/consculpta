@@ -6,7 +6,7 @@
  * @typedef {import('./types.js').Genome} Genome
  */
 
-import { fitIso, stats, strandP, uniforms, viable } from './analysis.js';
+import { fieldFn, fitIso, sdBlock, stats, strandP, uniforms, viable } from './analysis.js';
 import { glsl } from './codegen-glsl.js';
 import {
   DEFAULT_CAMERA,
@@ -52,6 +52,7 @@ export {
   depth,
   encode,
   fbmJS,
+  fieldFn,
   fitIso,
   fmtScalar,
   glsl,
@@ -72,6 +73,7 @@ export {
   SCALARS,
   STRANDS_OFF,
   STRANDS_ON,
+  sdBlock,
   seedVec,
   setRandom,
   size,
@@ -108,6 +110,8 @@ const engine = {
   stats,
   viable,
   uniforms,
+  fieldFn,
+  sdBlock,
   mutate,
   crossover,
   fitIso,

@@ -12,6 +12,8 @@ const types = {
   '.css': 'text/css',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json',
+  '.mp3': 'audio/mpeg',
   '.woff2': 'font/woff2',
 };
 

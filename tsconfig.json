@@ -17,6 +17,7 @@
     "vite.config.js",
     "vite.engine.config.js",
     "vite.render.config.js",
+    "vite.audio.config.js",
     "vitest.config.js",
     "playwright.config.js"
   ]

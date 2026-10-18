@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:engine": "vite build -c vite.engine.config.js",
     "build:render": "vite build -c vite.render.config.js",
-    "build:legacy": "npm run build:engine && npm run build:render",
+    "build:audio": "vite build -c vite.audio.config.js",
+    "build:legacy": "npm run build:engine && npm run build:render && npm run build:audio",
     "build:single": "node scripts/inline-single-file.mjs",
     "preview": "vite preview",
     "test": "vitest run",
@@ -26,6 +27,7 @@
     "@types/node": "26.6.5",
     "@vitest/coverage-v8": "5.0.5",
     "fast-check": "4.10.2",
+    "tone": "15.1.22",
     "typescript": "7.0.2",
     "vite": "8.3.4",
     "vitest": "5.0.5"

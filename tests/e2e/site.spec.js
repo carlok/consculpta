@@ -374,6 +374,48 @@ test.describe('Consculpta legacy site', () => {
     expect(await page.evaluate(() => localStorage.getItem('nsb.theme'))).toBe('system');
   });
 
+  test('Sound (experimental) plays generated notes that follow the specimen', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const btn = page.locator('#stage #sound');
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    const requests = [];
+    page.on('request', (r) => requests.push(r.url()));
+    // Nothing audio-related loads until Sound is turned on.
+    expect(await page.evaluate(() => typeof AUDIO)).toBe('undefined');
+    expect(requests.some((u) => u.includes('audio.bundle') || u.includes('/vcsl/'))).toBe(false);
+
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
+    await expect(page.locator('#vol')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__sound.stats.scheduled)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__sound.playing)).toBe(true);
+    // The vendored samples load and take over from the fallback synth.
+    await expect
+      .poll(() => page.evaluate(() => window.__sound.stats.sampled), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__sound.stats.loadError)).toBe('');
+    const origin = new URL(page.url()).origin;
+    const samples = requests.filter((u) => u.endsWith('.mp3'));
+    expect(samples.length).toBeGreaterThan(0);
+    for (const u of samples)
+      expect(u.startsWith(`${origin}/consculpta/third_party/vcsl/`), u).toBe(true);
+    // No third-party hosts (Tone's worklet code arrives as same-page blob: URLs, which are fine).
+    expect(requests.filter((u) => /^https?:/.test(u) && !u.startsWith(origin))).toEqual([]);
+
+    await page.evaluate(() => {
+      window.__prevScore = window.__sound.score;
+    });
+    await page.keyboard.press('2');
+    await expect(page.locator('#plateId')).toHaveText(/^G2 · /);
+    expect(await page.evaluate(() => window.__sound.score !== window.__prevScore)).toBe(true);
+
+    await page.keyboard.press('a');
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    expect(await page.evaluate(() => window.__sound.playing)).toBe(false);
+  });
+
   test('wide screens use three columns instead of empty margins', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/consculpta/');

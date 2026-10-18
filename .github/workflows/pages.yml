@@ -78,6 +78,7 @@ jobs:
           cp index.html _site/
           cp -r legacy/. _site/legacy/
           cp -r third_party/fonts _site/third_party/
+          cp -r third_party/vcsl _site/third_party/
           cp -r coverage/. _site/coverage/
 
       - name: Configure GitHub Pages

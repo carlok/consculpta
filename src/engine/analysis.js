@@ -213,3 +213,38 @@ export function uniforms(g) {
     0,
   ]);
 }
+
+/**
+ * The shader's field() in JS, for code that needs to know what the sculpture looks like without the GPU
+ * (e.g. sound). Returns (x, y, z, m) => margin: positive inside the visible surface, negative outside,
+ * in the same units as the iso level. m is the morph offset (S.morphT in the app). Points outside the
+ * block return -Infinity. Solid, shell, contour and strand modes follow src/render/glsl/scene.glsl.
+ */
+export function fieldFn(g) {
+  const U = uniforms(g),
+    F = js(g.t);
+  const iso = U[0],
+    thk = U[1],
+    mode = U[2],
+    bands = U[3],
+    bound = U[4],
+    bs = U[5],
+    fade = U[6],
+    mean = U[24],
+    ns = U[25],
+    strands = U[30] > 0.5;
+  return (x, y, z, m = 0) => {
+    const b = sdBlock(x, y, z, bound, bs);
+    if (b > 0) return -Infinity;
+    const rr = clamp(1 + b / (0.6 * bs), 0, 1);
+    const n = (F(x, y, z, m) - mean) * ns - fade * 0.8 * rr * rr;
+    if (strands) {
+      const q = strandP(x, y, z);
+      const n2 = (F(q[0], q[1], q[2], m) - mean) * ns;
+      return thk * 1.5 - Math.hypot(n - iso, n2 - iso);
+    }
+    if (mode === 0) return n - iso;
+    if (mode === 1) return thk - Math.abs(n - iso);
+    return thk * 4 - Math.abs(Math.sin((n - iso) * bands * TAU));
+  };
+}
