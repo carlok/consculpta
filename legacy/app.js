@@ -83,22 +83,52 @@ function endPreview(){
   if (!preview) return;
   preview = null; focusDirty = true; syncPlate();
 }
-/* Sound (experimental): generative audio read off the specimen on screen (src/audio, AUDIO global).
-   Off on every load; browsers only allow audio after a click anyway. */
-const sound = typeof AUDIO !== 'undefined' && (window.AudioContext || window.webkitAudioContext) ? AUDIO.createSonifier({engine:E}) : null;
+/* Sound (experimental): generative audio read off the specimen on screen (src/audio). The audio bundle
+   (Tone.js, arrangement) and the VCSL samples load only on the first click; off on every page load. */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let sound = null, soundLoading = null, audioCtx = null;
 let vol = 0.6;
 try { const v = localStorage.getItem('nsb.vol'); if (v !== null && Number(v) >= 0 && Number(v) <= 1) vol = Number(v); } catch (e) {}
 $('vol').value = String(Math.round(vol*100));
-$('sound').hidden = !sound;
-function soundSpecimen(){ if (sound && sound.playing) sound.setSpecimen(preview ? preview.g : S.parent); }
+$('sound').hidden = !AudioCtx;
+function loadSound(){
+  if (!soundLoading){
+    soundLoading = new Promise((resolve, reject) => {
+      if (typeof AUDIO !== 'undefined'){ resolve(); return; }
+      const el = document.createElement('script');
+      el.src = 'legacy/audio.bundle.js'; el.onload = () => resolve(); el.onerror = () => reject(new Error('audio bundle failed to load'));
+      document.head.appendChild(el);
+    }).then(() => {
+      sound = AUDIO.createSonifier({engine:E, baseUrl:'third_party/vcsl/', audioContext:audioCtx});
+      window.__sound = sound;   // debug / e2e handle
+      return sound;
+    });
+    soundLoading.catch(() => { soundLoading = null; });
+  }
+  return soundLoading;
+}
+/* A new parent (generation or formula) rings the gong; slider edits and thumbnail previews do not. */
+const soundKey = () => `${S.gen}:${E.print(S.parent.t)}`;
+function soundSpecimen(){ if (sound && sound.playing) sound.setSpecimen(preview ? preview.g : S.parent, soundKey()); }
 $('sound').addEventListener('click', async () => {
-  if (!sound) return;
-  if (sound.playing){ sound.stop(); setToggle('sound', false); $('vol').hidden = true; return; }
-  sound.setSpecimen(preview ? preview.g : S.parent);
-  sound.setView({yaw:S.yaw, morphT:S.morphT}); sound.setVolume(vol);
-  setToggle('sound', true); $('vol').hidden = false;
-  try { await sound.start(); }
-  catch (e) { setToggle('sound', false); $('vol').hidden = true; toast('Sound could not start in this browser.'); }
+  const btn = $('sound');
+  if (sound && sound.playing){ sound.stop(); setToggle('sound', false); $('vol').hidden = true; return; }
+  if (btn.getAttribute('aria-busy') === 'true') return;
+  // Safari only starts audio inside the click itself, so the context is created and resumed here,
+  // before awaiting the bundle; Tone adopts it.
+  if (!audioCtx){ audioCtx = new AudioCtx(); }
+  audioCtx.resume();
+  btn.setAttribute('aria-busy', 'true');
+  try {
+    await loadSound();
+    sound.setSpecimen(preview ? preview.g : S.parent, soundKey());
+    sound.setView({yaw:S.yaw, morphT:S.morphT, morphing:S.morph}); sound.setVolume(vol);
+    await sound.start();
+    setToggle('sound', true); $('vol').hidden = false;
+  } catch (e) {
+    console.warn('sound', e);
+    setToggle('sound', false); $('vol').hidden = true; toast('Sound could not start in this browser.');
+  } finally { btn.removeAttribute('aria-busy'); }
 });
 $('vol').addEventListener('input', e => {
   vol = Number(e.target.value)/100;
@@ -106,7 +136,6 @@ $('vol').addEventListener('input', e => {
   try { localStorage.setItem('nsb.vol', String(vol)); } catch (err) {}
 });
 document.addEventListener('visibilitychange', () => { if (!sound) return; if (document.hidden) sound.suspend(); else sound.resume(); });
-window.__sound = sound;   // debug / e2e handle
 /* Gene controls. Each entry has sync(v) to show a gene value; discrete genes get radio segments, the rest sliders. */
 const sliderEls = [];
 function sliderRow(i){
@@ -314,7 +343,7 @@ function frame(ts){
     const visible = stageOnScreen || !!(document.fullscreenElement || document.webkitFullscreenElement);
     if (S.spin && !drag.active && !snap && visible) S.yaw += dt*0.00032;
     if (S.morph && !snap && visible) S.morphT += dt*0.00008;
-    if (sound && sound.playing) sound.setView({yaw:S.yaw, morphT:S.morphT});
+    if (sound && sound.playing) sound.setView({yaw:S.yaw, morphT:S.morphT, morphing:S.morph});
     if (snap){ /* the export has the GPU */ }
     else if (!visible){ /* stage scrolled away: leave the GPU to thumbnails */ }
     else if (moving){

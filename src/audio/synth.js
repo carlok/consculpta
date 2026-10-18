@@ -19,8 +19,9 @@ function impulse(ctx, seconds, decay) {
   return buf;
 }
 
-export function createSynth(Ctx = globalThis.AudioContext || globalThis.webkitAudioContext) {
-  const ctx = new Ctx();
+/** @param ctxOrClass an AudioContext to share (e.g. Tone's), or a constructor for a new one. */
+export function createSynth(ctxOrClass = globalThis.AudioContext || globalThis.webkitAudioContext) {
+  const ctx = typeof ctxOrClass === 'function' ? new ctxOrClass() : ctxOrClass;
   const out = ctx.createGain();
   out.gain.value = 0;
   const comp = ctx.createDynamicsCompressor();

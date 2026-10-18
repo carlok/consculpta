@@ -84,5 +84,9 @@ export function scoreFor(E, g) {
     pan: Math.sin(U[11]) * 0.45, // light angle
     marginRef: strands ? U[1] * 1.5 : mode === 0 ? 0.5 : mode === 1 ? U[1] : U[1] * 4,
     strands,
+    block: ['sphere', 'cube', 'drum'][block],
+    mirrors: cues.mirrors,
+    warps: cues.warps,
+    gloss,
   };
 }

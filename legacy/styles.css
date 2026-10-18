@@ -98,6 +98,8 @@ p{margin:0}
 #zFull .fs-on,#zFull[aria-pressed="true"] .fs-off{display:none}
 #sound .snd-on,#sound[aria-pressed="true"] .snd-off{display:none}
 #sound[aria-pressed="true"] .snd-on{display:inline}
+#sound[aria-busy="true"]{cursor:progress;animation:busy 1.1s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){#sound[aria-busy="true"]{animation:none;opacity:.6}}
 .zoomer .vol{width:84px;height:22px;margin:0 6px 0 2px;accent-color:var(--accent)}
 #zFull[aria-pressed="true"] .fs-on{display:inline}
 .zsep{width:1px;align-self:stretch;background:var(--rule);margin:4px 1px}

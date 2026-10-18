@@ -380,12 +380,29 @@ test.describe('Consculpta legacy site', () => {
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
     const btn = page.locator('#stage #sound');
     await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    const requests = [];
+    page.on('request', (r) => requests.push(r.url()));
+    // Nothing audio-related loads until Sound is turned on.
+    expect(await page.evaluate(() => typeof AUDIO)).toBe('undefined');
+    expect(requests.some((u) => u.includes('audio.bundle') || u.includes('/vcsl/'))).toBe(false);
 
     await btn.click();
-    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    await expect(btn).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
     await expect(page.locator('#vol')).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__sound.stats.scheduled)).toBeGreaterThan(0);
     expect(await page.evaluate(() => window.__sound.playing)).toBe(true);
+    // The vendored samples load and take over from the fallback synth.
+    await expect
+      .poll(() => page.evaluate(() => window.__sound.stats.sampled), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__sound.stats.loadError)).toBe('');
+    const origin = new URL(page.url()).origin;
+    const samples = requests.filter((u) => u.endsWith('.mp3'));
+    expect(samples.length).toBeGreaterThan(0);
+    for (const u of samples)
+      expect(u.startsWith(`${origin}/consculpta/third_party/vcsl/`), u).toBe(true);
+    // No third-party hosts (Tone's worklet code arrives as same-page blob: URLs, which are fine).
+    expect(requests.filter((u) => /^https?:/.test(u) && !u.startsWith(origin))).toEqual([]);
 
     await page.evaluate(() => {
       window.__prevScore = window.__sound.score;

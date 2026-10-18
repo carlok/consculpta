@@ -87,3 +87,11 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 | Export label vs short tag | **39E1** (shader export) vs **74C8** (in-app tag) | **39E1** is the four hex digits from the maintainer’s Shadertoy/export filename, not produced by `tag()`. **74C8** is the last four hex digits of FNV-1a over the full `encode(g)` / `nsb3…` string (see `genome.tag`). Formulas, genes, and `P[]` match the fixture; only the display tag differs from the export label. |
 | First-visit camera | azimuth **4.4434**, elevation **0.3615**, distance **3.55** | From shader export; overridden when `nsb.v3` is stored |
 | Large view default | **Off** (side-by-side) | `localStorage.nsb.big === '1'` enables; absent or `0` keeps layout compact |
+
+## Sound (experimental)
+
+| Decision | Choice | Notes |
+|----------|--------|-------|
+| Sound library | **Tone.js** `15.1.22` (MIT) | Sampler, effects chain; bundled into `legacy/audio.bundle.js`, which the page injects only on the first Sound click |
+| Instrument samples | **Versilian Community Sample Library** subset (CC0-1.0) | Vendored in `third_party/vcsl/` (~4.3 MB MP3) by `scripts/vcsl-fetch.mjs` from a pinned commit; no third-party requests at runtime |
+| Fallback | Oscillator synth (`src/audio/synth.js`) | Plays until an ensemble's samples load, or if they fail |

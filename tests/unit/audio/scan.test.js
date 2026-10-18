@@ -84,7 +84,7 @@ describe('audio/sonifier scheduling', () => {
     expect(times).toEqual([...times].sort((a, b) => a - b));
     s.setView({ yaw: 2, morphT: 0.4 });
     s.setVolume(2);
-    expect(synth.setVolume).toHaveBeenLastCalledWith(1);
+    expect(synth.setVolume.mock.lastCall[0]).toBe(1);
     s.stop();
     expect(s.playing).toBe(false);
     vi.advanceTimersByTime(700);

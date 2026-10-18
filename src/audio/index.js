@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // @ts-nocheck
+import { arrange } from './arrange.js';
+import { ensembleFor } from './ensemble.js';
 import { makeScanner } from './scan.js';
 import { scoreFor } from './score.js';
 import { createSynth } from './synth.js';
 
+export { arrange, degreeMidi } from './arrange.js';
+export { ensembleFor, instrumentsOf, TRIM_DB } from './ensemble.js';
 export { colourFn, makeScanner } from './scan.js';
 export { MODES, scoreFor, treeCues } from './score.js';
 export { createSynth } from './synth.js';
@@ -12,120 +16,128 @@ const LOOKAHEAD = 0.12,
   TICK_MS = 25;
 
 /**
- * Generative sound for the current specimen. A lookahead scheduler (setInterval on AudioContext time,
- * not animation frames) asks the scanner what the shape looks like at each step and plays it through
- * the score's texture.
- * @param {{engine: any, createSynth?: Function}} opts createSynth is injectable for tests.
+ * Generative sound for the current specimen. A lookahead scheduler (setInterval on audio-context time,
+ * not animation frames) asks the scanner what the shape looks like at each step, arrange() turns that
+ * into events, and the orchestra (sampled instruments) plays them. Until an ensemble's samples have
+ * loaded, or if they fail, the oscillator synth plays instead, on the same clock.
+ * @param {{engine: any, createSynth?: Function, createOrchestra?: Function}} opts both injectable for tests;
+ *   without createOrchestra only the synth is used.
  */
-export function createSonifier({ engine, createSynth: make = createSynth }) {
+export function createSonifier({
+  engine,
+  createSynth: makeSynth = createSynth,
+  createOrchestra = null,
+}) {
   let synth = null,
+    orch = null,
+    ctx = null,
     timer = 0,
     score = null,
+    ens = null,
     scan = null,
     step = 0,
     next = 0,
     volume = 0.6,
-    playing = false;
-  const view = { yaw: 0, morphT: 0 };
-  const stats = { scheduled: 0, steps: 0 };
+    playing = false,
+    pendingGong = false,
+    specimenKey = '';
+  const view = { yaw: 0, morphT: 0, morphing: false };
+  const state = { chord: 0 };
+  const stats = { scheduled: 0, sampled: 0, steps: 0, loaded: [], loadError: '' };
 
-  function setSpecimen(g) {
+  function loadEnsemble() {
+    if (!orch || !ens) return;
+    orch.configure(score);
+    const want = ens;
+    orch.load(want).then(
+      () => {
+        if (want === ens) stats.loaded = Object.values(ens).filter((v) => typeof v === 'string');
+      },
+      (e) => {
+        stats.loadError = String(e?.message || e);
+      },
+    );
+  }
+
+  function setSpecimen(g, key) {
     score = scoreFor(engine, g);
     scan = makeScanner(engine, g, score);
+    ens = ensembleFor(score);
+    if (playing && key && specimenKey && key !== specimenKey) pendingGong = true;
+    if (key) specimenKey = key;
     if (synth) synth.setReverb(score.reverb);
+    loadEnsemble();
   }
 
-  function play(s, t, dur, extra) {
-    const sc = score;
-    synth.note({
-      t,
-      midi: s.midi,
-      dur,
-      vel: s.vel,
-      kind: sc.timbre,
-      cutoff: sc.cutoff * (0.5 + s.bright),
-      attack: sc.attack,
-      release: 1.2,
-      pan: sc.pan + (s.voice === 1 ? 0.2 : s.voice === 2 ? -0.2 : 0),
-      detune: sc.detune,
-      send: 0.35,
-      ...extra,
-    });
-    stats.scheduled++;
-  }
-
-  /** A triad on the scale degree the middle ring reads, voiced low. */
-  function chord(s0, t, dur) {
-    const sc = score,
-      L = sc.scale.length;
-    for (const off of [0, 2, 4]) {
-      const d = s0.deg + off;
-      const midi = sc.root + 12 + sc.scale[d % L] + 12 * Math.floor(d / L);
-      play({ ...s0, midi, vel: 0.5 }, t, dur, { kind: 'pad', attack: Math.max(0.4, sc.attack) });
+  /** The oscillator synth's stand-in for an event while samples load. */
+  function fallback(ev, t) {
+    if (ev.kind === 'hit') {
+      if (ev.role === 'perc') synth.thump(t, ev.vel);
+      return;
     }
+    const bed = ev.role === 'bed';
+    synth.note({
+      t: t + (ev.at || 0),
+      midi: ev.midi,
+      dur: ev.dur,
+      vel: ev.vel * (bed ? 0.6 : 1),
+      kind: bed ? 'pad' : score.strands ? 'bell' : score.timbre,
+      cutoff: score.cutoff,
+      attack: bed ? 0.6 : score.attack,
+      release: bed ? 2 : 1.2,
+      pan: score.pan,
+      detune: score.detune,
+      send: 0.35,
+    });
   }
 
   function scheduleStep(t) {
-    const sc = score,
-      k = step % sc.steps,
-      beat = sc.stepDur;
-    const smp = scan(step, view.yaw, view.morphT);
+    const samples = scan(step, view.yaw, view.morphT);
     stats.steps++;
-    if (sc.membrane && (k === 0 || (k === sc.steps / 2 && smp[0].on))) {
-      synth.thump(t, 0.7);
+    const events = arrange({ step, samples, score, ens, gong: pendingGong, state });
+    pendingGong = false;
+    for (const ev of events) {
       stats.scheduled++;
-    }
-    if (sc.texture === 'sustain') {
-      if (k === 0) chord(smp[0], t, beat * sc.steps);
-      if (k % 2 === 0 && smp[0].on) play(smp[0], t, beat * 1.8, { vel: smp[0].vel * 0.7 });
-      if (k % 4 === 2 && smp[1] && smp[1].on) play(smp[1], t, beat * 3, { vel: smp[1].vel * 0.5 });
-    } else if (sc.texture === 'arp') {
-      if (k === 0) chord(smp[0], t, beat * sc.steps);
-      const s = smp[k % smp.length];
-      if (s.on) play(s, t, beat * 1.3);
-    } else if (sc.texture === 'pulse') {
-      const every = Math.max(1, Math.round(sc.steps / sc.bands));
-      if (k % every === 0) {
-        const low = smp[smp.length - 1];
-        play({ ...low, midi: sc.root + 12 }, t, beat * 0.6, {
-          kind: 'pluck',
-          attack: 0.005,
-          release: 0.4,
-        });
-      }
-      if (k % 2 === 1 && smp[0].on) play(smp[0], t, beat * 1.5, { vel: smp[0].vel * 0.6 });
-    } else {
-      for (const s of smp) {
-        if (s.on && (k + s.voice) % 3 === 0)
-          play({ ...s, midi: s.midi + 12 }, t, beat * 0.5, {
-            kind: 'bell',
-            attack: 0.005,
-            release: 2.6,
-            send: 0.6,
-          });
-      }
+      if (orch?.play(ev, t)) stats.sampled++;
+      else fallback(ev, t);
     }
     // Swing: long-short pairs.
-    next += beat * (step % 2 === 0 ? 1 + sc.swing : 1 - sc.swing);
+    next += score.stepDur * (step % 2 === 0 ? 1 + score.swing : 1 - score.swing);
     step++;
   }
 
   function tick() {
     if (!playing || !score) return;
-    const horizon = synth.ctx.currentTime + LOOKAHEAD;
-    if (next < synth.ctx.currentTime) next = synth.ctx.currentTime + 0.02; // fell behind (tab was busy)
+    const now = ctx.currentTime,
+      horizon = now + LOOKAHEAD;
+    if (next < now) next = now + 0.02; // fell behind (tab was busy)
     while (next < horizon) scheduleStep(next);
+  }
+
+  function setLevel(v, ramp) {
+    synth.setVolume(v, ramp);
+    if (orch) orch.setVolume(v, ramp);
   }
 
   async function start() {
     if (!synth) {
-      synth = make();
-      if (score) synth.setReverb(score.reverb);
+      if (createOrchestra) {
+        orch = createOrchestra();
+        synth = makeSynth(orch.rawContext);
+        ctx = orch.ctx;
+      } else {
+        synth = makeSynth();
+        ctx = synth.ctx;
+      }
+      if (score) {
+        synth.setReverb(score.reverb);
+        loadEnsemble();
+      }
     }
-    await synth.ctx.resume();
+    await ctx.resume();
     playing = true;
-    synth.setVolume(volume);
-    next = synth.ctx.currentTime + 0.05;
+    setLevel(volume);
+    next = ctx.currentTime + 0.05;
     clearInterval(timer);
     timer = setInterval(tick, TICK_MS);
     tick();
@@ -135,10 +147,10 @@ export function createSonifier({ engine, createSynth: make = createSynth }) {
     playing = false;
     clearInterval(timer);
     if (!synth) return;
-    synth.setVolume(0, 0.08);
-    const s = synth;
+    setLevel(0, 0.08);
+    const c = ctx;
     setTimeout(() => {
-      if (!playing) s.ctx.suspend();
+      if (!playing) c.suspend();
     }, 600);
   }
 
@@ -149,23 +161,30 @@ export function createSonifier({ engine, createSynth: make = createSynth }) {
     setView(v) {
       if (typeof v.yaw === 'number') view.yaw = v.yaw;
       if (typeof v.morphT === 'number') view.morphT = v.morphT;
+      if (typeof v.morphing === 'boolean' && v.morphing !== view.morphing) {
+        view.morphing = v.morphing;
+        if (orch) orch.setMorphing(v.morphing);
+      }
     },
     setVolume(v) {
       volume = Math.max(0, Math.min(1, v));
-      if (synth && playing) synth.setVolume(volume);
+      if (synth && playing) setLevel(volume);
     },
     /** Pause audio without losing place, e.g. while the tab is hidden. */
     suspend() {
-      if (synth) synth.ctx.suspend();
+      if (ctx) ctx.suspend();
     },
     resume() {
-      if (synth && playing) synth.ctx.resume();
+      if (ctx && playing) ctx.resume();
     },
     get playing() {
       return playing;
     },
     get score() {
       return score;
+    },
+    get ensemble() {
+      return ens;
     },
     stats,
   };
