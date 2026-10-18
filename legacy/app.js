@@ -83,6 +83,30 @@ function endPreview(){
   if (!preview) return;
   preview = null; focusDirty = true; syncPlate();
 }
+/* Sound (experimental): generative audio read off the specimen on screen (src/audio, AUDIO global).
+   Off on every load; browsers only allow audio after a click anyway. */
+const sound = typeof AUDIO !== 'undefined' && (window.AudioContext || window.webkitAudioContext) ? AUDIO.createSonifier({engine:E}) : null;
+let vol = 0.6;
+try { const v = localStorage.getItem('nsb.vol'); if (v !== null && Number(v) >= 0 && Number(v) <= 1) vol = Number(v); } catch (e) {}
+$('vol').value = String(Math.round(vol*100));
+$('sound').hidden = !sound;
+function soundSpecimen(){ if (sound && sound.playing) sound.setSpecimen(preview ? preview.g : S.parent); }
+$('sound').addEventListener('click', async () => {
+  if (!sound) return;
+  if (sound.playing){ sound.stop(); setToggle('sound', false); $('vol').hidden = true; return; }
+  sound.setSpecimen(preview ? preview.g : S.parent);
+  sound.setView({yaw:S.yaw, morphT:S.morphT}); sound.setVolume(vol);
+  setToggle('sound', true); $('vol').hidden = false;
+  try { await sound.start(); }
+  catch (e) { setToggle('sound', false); $('vol').hidden = true; toast('Sound could not start in this browser.'); }
+});
+$('vol').addEventListener('input', e => {
+  vol = Number(e.target.value)/100;
+  if (sound) sound.setVolume(vol);
+  try { localStorage.setItem('nsb.vol', String(vol)); } catch (err) {}
+});
+document.addEventListener('visibilitychange', () => { if (!sound) return; if (document.hidden) sound.suspend(); else sound.resume(); });
+window.__sound = sound;   // debug / e2e handle
 /* Gene controls. Each entry has sync(v) to show a gene value; discrete genes get radio segments, the rest sliders. */
 const sliderEls = [];
 function sliderRow(i){
@@ -290,6 +314,7 @@ function frame(ts){
     const visible = stageOnScreen || !!(document.fullscreenElement || document.webkitFullscreenElement);
     if (S.spin && !drag.active && !snap && visible) S.yaw += dt*0.00032;
     if (S.morph && !snap && visible) S.morphT += dt*0.00008;
+    if (sound && sound.playing) sound.setView({yaw:S.yaw, morphT:S.morphT});
     if (snap){ /* the export has the GPU */ }
     else if (!visible){ /* stage scrolled away: leave the GPU to thumbnails */ }
     else if (moving){
@@ -402,6 +427,7 @@ function syncLitter(){
 }
 /* The plate names the parent, or the offspring being previewed. */
 function syncPlate(){
+  soundSpecimen();
   $('stage').classList.toggle('previewing', !!preview);
   if (preview){ $('plateId').textContent = `Offspring ${preview.i + 1} · ${E.tag(preview.g)}`; $('plateKind').textContent = kindOf(preview.g); return; }
   $('plateId').textContent = `G${S.gen} · ${E.tag(S.parent)}`;
@@ -1057,7 +1083,7 @@ document.addEventListener('keydown', e => {
   else if (k === 'z') act = e.shiftKey ? redo : undo;
   else if (!e.shiftKey){
     act = {n:() => $('reroll').click(), k:() => $('keep').click(), r:() => $('random').click(),
-           s:() => $('spin').click(), m:() => $('morph').click()}[k] || null;
+           s:() => $('spin').click(), m:() => $('morph').click(), a:() => $('sound').click()}[k] || null;
   }
   if (!act) return;
   e.preventDefault(); act();

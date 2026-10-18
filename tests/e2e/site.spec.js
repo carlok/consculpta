@@ -373,4 +373,29 @@ test.describe('Consculpta legacy site', () => {
     await expect(html).not.toHaveAttribute('data-theme', /.+/);
     expect(await page.evaluate(() => localStorage.getItem('nsb.theme'))).toBe('system');
   });
+
+  test('Sound (experimental) plays generated notes that follow the specimen', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const btn = page.locator('#stage #sound');
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#vol')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__sound.stats.scheduled)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__sound.playing)).toBe(true);
+
+    await page.evaluate(() => {
+      window.__prevScore = window.__sound.score;
+    });
+    await page.keyboard.press('2');
+    await expect(page.locator('#plateId')).toHaveText(/^G2 · /);
+    expect(await page.evaluate(() => window.__sound.score !== window.__prevScore)).toBe(true);
+
+    await page.keyboard.press('a');
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    expect(await page.evaluate(() => window.__sound.playing)).toBe(false);
+  });
 });

@@ -25,7 +25,8 @@ Open the [live site](https://carlok.github.io/consculpta/) in a WebGL 2 browser.
 5. **Large view** — On wide screens, **Large view** toggles a wider main stage versus giving the litter grid more room in the layout. On a first visit with no saved preference, it starts **off**. Your choice is stored in this browser (`localStorage` key `nsb.big`).
 6. **Undo and shortcuts** — **Undo** / **Redo** step through parents; most actions also show an Undo button in the toast. Press `?` for the keyboard shortcuts (`1`–`6` adopt, `N` new litter, `K` keep, `Z` undo).
 7. **Theme** — The footer switch picks System, Light or Dark; the choice is stored as `nsb.theme`.
-8. **AI breeder** (optional) — Off by default. Turn it on to let a configured model rank litters or suggest offspring. You choose the provider (Anthropic API or an OpenAI-compatible endpoint), model, and API key in the settings panel.
+8. **Sound** (experimental) — The speaker icon on the stage (or `A`) plays music generated from the specimen. The genome sets key, mode, pace and timbre (block shape picks the instrument, surface type the texture). The melody is read off the sculpture itself: rings around it are sampled across the side facing you, so solid parts play and gaps rest, the top sings high and the bottom plays bass. Spin turns the phrase with the view; Morph changes it exactly as the shape flows. Off on every visit; volume is stored as `nsb.vol`.
+9. **AI breeder** (optional) — Off by default. Turn it on to let a configured model rank litters or suggest offspring. You choose the provider (Anthropic API or an OpenAI-compatible endpoint), model, and API key in the settings panel.
 
 ## Privacy and API keys
 

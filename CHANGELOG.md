@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Sound (experimental):** generative music from the current specimen, in `src/audio/` (bundled as `legacy/audio.bundle.js`, global `AUDIO`). `scoreFor` maps the genome to key, mode, pace, timbre and texture; `makeScanner` reads the melody from the shape by sampling the field on rings across the side facing the camera (inside plays, outside rests), following Spin and Morph; a small Web Audio synth (oscillator voices, membrane thump for drum blocks, generated-impulse reverb) plays it on a lookahead scheduler. Stage icon and `A` shortcut; off on every load; volume in `nsb.vol`; follows the thumbnail preview.
+- Engine: `js()` closures take an optional morph offset `m` (the shaders' `gMT3`, applied to `noise`, `fbm` and `warp`); `fieldFn(g)` is a JS twin of the shader's `field()`; `sdBlock` is exported.
+
 - Phase 3 renderer: `src/render/*` (shader, gl, camera, scheduler, png, tiler), GLSL under `src/render/glsl/`, vendored MIT `third_party/webgl-noise`, Vite `legacy/render.bundle.js`, `glslangValidator` in CI, Playwright noise-parity e2e.
 - **Redo** button next to Undo; any new step clears the redo stack.
 - Toasts can carry an **Undo** button (10 s, held open on hover or focus). Adopting, Random, Reset genome, Reset genes, Apply formulas, loading a genome code or a kept specimen, and removing a shelf item all offer it.
