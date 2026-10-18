@@ -373,4 +373,19 @@ test.describe('Consculpta legacy site', () => {
     await expect(html).not.toHaveAttribute('data-theme', /.+/);
     expect(await page.evaluate(() => localStorage.getItem('nsb.theme'))).toBe('system');
   });
+
+  test('wide screens use three columns instead of empty margins', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const box = (sel) => page.locator(sel).boundingBox();
+    const [stage, litter, keepers, curator] = await Promise.all(
+      ['#stage', '.litter-block', '.keepers', '.curator'].map(box),
+    );
+    expect(litter.x).toBeGreaterThan(stage.x + stage.width);
+    expect(keepers.x).toBeGreaterThan(litter.x + litter.width);
+    expect(curator.x).toBe(keepers.x);
+    expect(curator.y).toBeLessThan(keepers.y + keepers.height + 40);
+    expect(keepers.x + keepers.width).toBeGreaterThan(1920 * 0.9);
+  });
 });

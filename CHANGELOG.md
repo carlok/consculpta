@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Large screens: the page is no longer capped at 1280 px (now 2400 px, with fluid side padding). From 1500 px wide the side-by-side layout uses three columns (stage, litter, then shelf, genome and AI breeder), and the litter stays in view beside the stage while the right column scrolls.
 - The mutation slider says (tooltip and `aria-describedby`) that changing it rerolls the litter.
 - The formula language reference is a two-column list in a scrolling box instead of a long preformatted block.
 - Legacy boot marks the footer and core UI state before enqueueing litter thumbnails, and litter shader compiles happen incrementally in the frame loop (avoids blocking first paint on six parallel compiles).
