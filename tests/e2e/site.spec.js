@@ -283,7 +283,7 @@ test.describe('Consculpta legacy site', () => {
   test('discrete genes use segments and dim genes that do not apply', async ({ page }) => {
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
-    await page.locator('#genome > summary').click();
+    await expect(page.locator('#genome')).toHaveAttribute('open', '');
     const surface = page.locator('#gene-2');
     await expect(surface.getByRole('radio')).toHaveCount(3);
     // Default specimen is a solid sphere: segments reflect the current genes on load.
@@ -304,7 +304,7 @@ test.describe('Consculpta legacy site', () => {
   test('formula editor flags parse errors and applies with Ctrl+Enter', async ({ page }) => {
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
-    await page.locator('#genome > summary').click();
+    await expect(page.locator('#genome')).toHaveAttribute('open', '');
     const shape = page.locator('#fText');
     const original = await shape.inputValue();
 
@@ -345,7 +345,7 @@ test.describe('Consculpta legacy site', () => {
     test.setTimeout(120_000);
     await page.goto('/consculpta/');
     await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
-    await page.locator('#genome > summary').click();
+    await expect(page.locator('#genome')).toHaveAttribute('open', '');
     const code = page.locator('#code');
     const before = await code.inputValue();
     const presets = page.locator('#presets button');
@@ -477,5 +477,18 @@ test.describe('Consculpta legacy site', () => {
     expect(curator.x).toBe(keepers.x);
     expect(curator.y).toBeLessThan(keepers.y + keepers.height + 40);
     expect(keepers.x + keepers.width).toBeGreaterThan(1920 * 0.9);
+  });
+
+  test('the genome panel starts open and remembers being closed', async ({ page }) => {
+    await page.goto('/consculpta/');
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    const genome = page.locator('#genome');
+    await expect(genome).toHaveAttribute('open', '');
+    await expect(page.locator('#fText')).toBeVisible();
+    await page.locator('#genome > summary').click();
+    await expect(genome).not.toHaveAttribute('open', '');
+    await page.reload();
+    await expect(page.locator('#plateId')).toHaveText('G1 · 74C8');
+    await expect(genome).not.toHaveAttribute('open', '');
   });
 });
