@@ -27,7 +27,7 @@
 }
 *{box-sizing:border-box}
 body{background:var(--paper);color:var(--ink);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
-.wrap{max-width:1280px;margin:0 auto;padding-block:22px 44px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:grid;gap:22px}
+.wrap{max-width:2400px;margin:0 auto;padding-block:22px 44px;padding-left:max(clamp(16px, 2.2vw, 48px), env(safe-area-inset-left, 0px));padding-right:max(clamp(16px, 2.2vw, 48px), env(safe-area-inset-right, 0px));display:grid;gap:22px}
 h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;letter-spacing:.005em}
 h1{font-size:clamp(30px, 4.6vw, 46px);line-height:1.02}
 h2{font-size:21px;line-height:1.15}
@@ -48,6 +48,15 @@ p{margin:0}
    shrinks to fit the viewport height (minus readout and actions) so the sticky column never overflows. */
 @media (min-width:900px) and (min-height:600px){.bench>.col:first-child{position:sticky;top:calc(16px + env(safe-area-inset-top, 0px))}}
 @media (min-width:900px){.bench:not(.big) .stage{width:min(100%, calc(100vh - 190px));min-width:320px;margin-inline:auto}}
+/* Wide screens: three columns (stage | litter | shelf, genome, AI breeder) instead of empty margins.
+   The litter sticks beside the stage while the right column scrolls. */
+@media (min-width:1500px){
+  .bench:not(.big){grid-template-columns:minmax(0,1fr) minmax(0,1.45fr);column-gap:32px}
+  .bench:not(.big) .breed{grid-template-columns:minmax(0,1.1fr) minmax(320px,0.9fr);grid-template-rows:auto 1fr;column-gap:32px;align-items:start}
+  .bench:not(.big) .litter-block{grid-column:1;grid-row:1 / span 2}
+  .bench:not(.big) .keepers,.bench:not(.big) .curator{grid-column:2}
+}
+@media (min-width:1500px) and (min-height:600px){.bench:not(.big) .litter-block{position:sticky;top:calc(16px + env(safe-area-inset-top, 0px))}}
 .col{display:grid;gap:14px;min-width:0}
 
 .stage{position:relative;container-type:inline-size;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--stage);overflow:hidden;outline:none}
