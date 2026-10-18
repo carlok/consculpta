@@ -253,6 +253,10 @@ LIGHT.forEach(i => $('gLight').appendChild(sliderRow(i)));
   });
   $('langRef').appendChild(dl);
 })();
+/* The genome panel starts open so first-time visitors see what each specimen is made of; closing it is
+   remembered (nsb.genomeOpen). */
+try { if (localStorage.getItem('nsb.genomeOpen') === '0') $('genome').open = false; } catch (e) {}
+$('genome').addEventListener('toggle', () => { try { localStorage.setItem('nsb.genomeOpen', $('genome').open ? '1' : '0'); } catch (e) {} });
 /* Palette presets, in cosine-palette terms (E.paletteToGenes clamps them into the gene ranges). */
 const PRESETS = [
   ['Spectrum', {a:[0.5, 0.5, 0.5], b:[0.5, 0.5, 0.5], c:[1, 1, 1], d:[0, 0.33, 0.67]}],
