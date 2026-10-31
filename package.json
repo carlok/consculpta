@@ -22,14 +22,14 @@
     "check": "npm run lint && npm run typecheck && npm run build:legacy && npm run glsl && npm run coverage"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.3",
     "@playwright/test": "1.64.1",
     "@types/node": "26.6.5",
     "@vitest/coverage-v8": "5.0.5",
     "fast-check": "4.10.2",
     "tone": "15.1.22",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
+    "vite": "8.3.5",
     "vitest": "5.0.5"
   }
 }
