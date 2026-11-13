@@ -22,7 +22,8 @@ Maintainer choices and project defaults. Items marked **TBD** need a maintainer 
 | Project licence | **Apache-2.0** | [LICENSE](../LICENSE); SPDX on project-authored files |
 | Third-party licences | Per component | Fonts: SIL OFL 1.1; future GLSL noise: MIT |
 | Showcase renders (`docs/images/`) | Maintainer-owned | Listed in [REUSE.toml](../REUSE.toml); `specimen-01.png` is **Apache-2.0** (may switch to CC-BY-4.0 for later images — update REUSE + this table) |
-| `SECURITY.md` / `CITATION.cff` contact | **TBD** | Maintainer name and contact |
+| Security reporting | [SECURITY.md](../SECURITY.md) | Private via GitHub Security Advisories; GitHub [@carlok](https://github.com/carlok) |
+| `CITATION.cff` | **TBD** | Optional academic citation file |
 | Engineering brief in repo | **Removed** | Internal phase plan lived in `BRIEF.md`; removed from the tree to avoid stale references. Phases are tracked in commits, `CHANGELOG.md`, and PRs. |
 
 ## Communication and naming

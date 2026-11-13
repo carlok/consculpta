@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Bug report
+description: Something broken in the app, build, or tests
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. For **security** issues, use [Security Advisories](https://github.com/carlok/consculpta/security/advisories/new) instead of this form.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead?
+      placeholder: Clear steps to reproduce.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit or deploy context
+      description: Git commit SHA, branch, or "live site" with date/time if applicable.
+      placeholder: e.g. main @ abc1234 or https://carlok.github.io/consculpta/
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Live site (GitHub Pages)
+        - Local dev (`npm run dev`)
+        - Engine / genome
+        - Renderer / WebGL
+        - Sound
+        - AI breeder
+        - Build / CI
+        - Tests
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / OS
+      placeholder: e.g. Firefox 145 on Linux, Safari on iOS 18
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
