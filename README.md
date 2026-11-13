@@ -42,12 +42,13 @@ Other preferences (genome, current litter, recent parents for Undo, shelf, mutat
 
 ```bash
 npm ci
-npm run check    # lint, typecheck, unit tests, e2e (CI)
+npm run check    # lint, typecheck, legacy bundles, GLSL check, coverage (CI + Pages)
+npm run e2e      # Playwright smoke tests (separate CI job; needs chromium)
 npm run dev      # Vite dev server (refactored shell under src/)
 npm run build:engine   # refresh legacy/engine.bundle.js for the live page
 ```
 
-The Pages deployment serves root `index.html`, `legacy/`, and vendored assets. See [docs/DECISIONS.md](docs/DECISIONS.md) for maintainer decisions.
+The Pages deployment serves root `index.html`, `legacy/`, and vendored assets. See [CONTRIBUTING.md](CONTRIBUTING.md), [AGENT.md](AGENT.md) (for coding agents), and [docs/DECISIONS.md](docs/DECISIONS.md) for maintainer decisions.
 
 ---
 
