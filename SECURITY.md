@@ -10,9 +10,7 @@ Security fixes are applied on the default branch (`main`) and released via GitHu
 
 **Please do not open a public GitHub issue for security problems.**
 
-Report vulnerabilities **privately** using [GitHub Security Advisories](https://github.com/carlok/consculpta/security/advisories/new) for this repository (Repository → **Security** → **Report a vulnerability**).
-
-If you cannot use Security Advisories, contact the maintainer on GitHub: [@carlok](https://github.com/carlok) (e.g. a private gist or coordinated disclosure request via GitHub)—**not** by email in this document.
+Report vulnerabilities **privately** via [GitHub private vulnerability reporting](https://github.com/carlok/consculpta/security/advisories/new) for this repository (**Security** tab → **Report a vulnerability**).
 
 Include:
 

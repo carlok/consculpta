@@ -8,7 +8,7 @@ This file is for automated and human agents working in [carlok/consculpta](https
 
 - **Coverage before commit:** When you change behaviour in `src/engine/**`, add or extend tests and run `npm run coverage`. Aim to **increase or preserve** line and branch coverage (thresholds: ≥90% lines, ≥85% branches on `src/engine/**`). Do not open a PR that lowers coverage.
 - **No secrets:** Never commit API keys, tokens, or credentials. Do not commit host-specific values (personal paths, machine names, private URLs). User API keys belong only in browser `localStorage` on the live site, not in the repo.
-- **General public docs:** Keep README, issue templates, and user-facing copy provider-neutral and environment-agnostic. Maintainer contact is GitHub [@carlok](https://github.com/carlok) only—no email addresses in the tree.
+- **General public docs:** Keep README, issue templates, and user-facing copy provider-neutral and environment-agnostic. Maintainer contact is GitHub [@carlok](https://github.com/carlok); the only email in the repo is the Code of Conduct enforcement address in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 Do not change [LICENSE](LICENSE) or third-party licence files unless explicitly asked.
 
