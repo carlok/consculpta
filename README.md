@@ -48,7 +48,7 @@ npm run dev      # Vite dev server (refactored shell under src/)
 npm run build:engine   # refresh legacy/engine.bundle.js for the live page
 ```
 
-The Pages deployment serves root `index.html`, `legacy/`, and vendored assets. See [CONTRIBUTING.md](CONTRIBUTING.md), [AGENT.md](AGENT.md) (for coding agents), and [docs/DECISIONS.md](docs/DECISIONS.md) for maintainer decisions.
+The Pages deployment serves root `index.html`, `legacy/`, and vendored assets. See [CONTRIBUTING.md](CONTRIBUTING.md), [AGENT.md](AGENT.md) (for coding agents), and [docs/DECISIONS.md](docs/DECISIONS.md) for maintainer decisions. To report security vulnerabilities privately, see [SECURITY.md](SECURITY.md)—do not open public issues for them.
 
 ---
 
